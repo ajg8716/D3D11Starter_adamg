@@ -241,7 +241,7 @@ void Game::CreateGeometry()
 	}
 }
 
-void BuildCustomWindow(float* color, bool* showDemoMenu) {
+void BuildCustomWindow(float* color, bool* showDemoMenu, int* number, bool *showHappyMeter) {
 	// create a new window
 	ImGui::Begin("Custom Window");
 
@@ -253,13 +253,31 @@ void BuildCustomWindow(float* color, bool* showDemoMenu) {
 	ImGui::ColorEdit4("background color", color);
 	//button to hide or show the window on click
 	if (ImGui::Button("show demo menu")) {
-		
 		*showDemoMenu = !(*showDemoMenu);
 	}
-
-	//slider for 
+	if (ImGui::Button("surprise")) {
+		*showHappyMeter = !(*showHappyMeter);
+	}
 
 	//end of building the window
+	ImGui::End();
+}
+// --------------------------------------------------------
+// Helper function to toggle visibility of happiness meter on new window
+// --------------------------------------------------------
+void NewWindowWithHappyMeter(int *number, std::string *happyMeterMessage) {
+
+	// create a new window
+	ImGui::Begin("Happiness 0-100??"); 
+
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(13, 56, 46, 1));
+	ImGui::PopStyleColor();
+
+	if (*number == 100) {
+		*happyMeterMessage = "   :]    ";
+	}
+	//create a slider for happiness level on this window
+	ImGui::SliderInt((happyMeterMessage)->c_str(), number, 100, 100);
 	ImGui::End();
 }
 // --------------------------------------------------------
@@ -287,8 +305,13 @@ void Game::ImGuiFresh(float deltaTime) {
 		ImGui::ShowDemoWindow();
 	}
 
-	//build the custom window instead 
-	BuildCustomWindow(color, &showDemoMenu);
+	//toggle the happiness meter
+	if (showHappyMeter)
+	{
+		NewWindowWithHappyMeter(&number, &happyMeterMessage);
+	}
+
+	BuildCustomWindow(color, &showDemoMenu, &number, &showHappyMeter);
 	
 }
 

@@ -2,6 +2,7 @@
 
 #include <d3d11.h>
 #include <wrl/client.h>
+#include <string>
 
 class Game
 {
@@ -26,6 +27,9 @@ private:
 	//establish color as a member of the Game class
 	float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };
 	bool showDemoMenu = false;
+	bool showHappyMeter = false;
+	int number = 0;
+	std::string happyMeterMessage = "happiness lvl???";
 
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the
