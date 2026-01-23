@@ -4,7 +4,11 @@
 #include "Input.h"
 #include "PathHelpers.h"
 #include "Window.h"
-
+// This code assumes files are in "ImGui" subfolder!
+// Adjust as necessary for your own folder structure and project setup
+#include "ImGui/imgui.h"
+#include "ImGui/imgui_impl_dx11.h"
+#include "ImGui/imgui_impl_win32.h"
 #include <DirectXMath.h>
 
 // Needed for a helper function to load pre-compiled shader files
@@ -46,6 +50,15 @@ Game::Game()
 		//    these calls will need to happen multiple times per frame
 		Graphics::Context->VSSetShader(vertexShader.Get(), 0, 0);
 		Graphics::Context->PSSetShader(pixelShader.Get(), 0, 0);
+		
+		// initialize ImGui & platform/render backends
+		IMGUI_CHECKVERSION();
+		ImGui::CreateContext();
+		ImGui_ImplWin32_Init(Window::Handle());
+		ImGui_ImplDX11_Init(Graphics::Device.Get(), Graphics::Context.Get());
+
+		// Pick a style 
+		ImGui::StyleColorsDark();
 	}
 }
 
@@ -58,7 +71,10 @@ Game::Game()
 // --------------------------------------------------------
 Game::~Game()
 {
-
+	// ImGui clean up
+	ImGui_ImplDX11_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
 }
 
 
@@ -225,6 +241,56 @@ void Game::CreateGeometry()
 	}
 }
 
+void BuildCustomWindow(float* color, bool* showDemoMenu) {
+	// create a new window
+	ImGui::Begin("Custom Window");
+
+	// display framerate %f is a replacable float, in sequence of inputs after
+	ImGui::Text("fps: %f", ImGui::GetIO().Framerate);
+	// display resolution %d is a decimal integer, in seqquence of inputs after
+	ImGui::Text("resolution: %d x %d", Window::Width(), Window::Height());
+	// edit the background color
+	ImGui::ColorEdit4("background color", color);
+	//button to hide or show the window on click
+	if (ImGui::Button("show demo menu")) {
+		
+		*showDemoMenu = !(*showDemoMenu);
+	}
+
+	//slider for 
+
+	//end of building the window
+	ImGui::End();
+}
+// --------------------------------------------------------
+// Helper function to setup ImGui
+// --------------------------------------------------------
+void Game::ImGuiFresh(float deltaTime) {
+	// Feed fresh data to ImGui
+	ImGuiIO& io = ImGui::GetIO();
+	io.DeltaTime = deltaTime;
+	io.DisplaySize.x = (float)Window::Width();
+	io.DisplaySize.y = (float)Window::Height();
+	// Reset the frame
+	ImGui_ImplDX11_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+	// Determine new input capture
+	Input::SetKeyboardCapture(io.WantCaptureKeyboard);
+	Input::SetMouseCapture(io.WantCaptureMouse);
+	// Show the demo window
+	//ImGui::ShowDemoWindow();
+
+	// Show the demo window only if the boolean is true
+	if (showDemoMenu)
+	{
+		ImGui::ShowDemoWindow();
+	}
+
+	//build the custom window instead 
+	BuildCustomWindow(color, &showDemoMenu);
+	
+}
 
 // --------------------------------------------------------
 // Handle resizing to match the new window size
@@ -235,17 +301,17 @@ void Game::OnResize()
 	
 }
 
-
 // --------------------------------------------------------
 // Update your game here - user input, move objects, AI, etc.
 // --------------------------------------------------------
 void Game::Update(float deltaTime, float totalTime)
 {
+	//call the function first to ensure it happens when a new frame has started
+	ImGuiFresh(deltaTime);
 	// Example input checking: Quit if the escape key is pressed
 	if (Input::KeyDown(VK_ESCAPE))
 		Window::Quit();
 }
-
 
 // --------------------------------------------------------
 // Clear the screen, redraw everything, present to the user
@@ -257,7 +323,7 @@ void Game::Draw(float deltaTime, float totalTime)
 	// - At the beginning of Game::Draw() before drawing *anything*
 	{
 		// Clear the back buffer (erase what's on screen) and depth buffer
-		const float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };
+		//const float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };
 		Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(),	color);
 		Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 	}
@@ -286,6 +352,9 @@ void Game::Draw(float deltaTime, float totalTime)
 			3,     // The number of indices to use (we could draw a subset if we wanted)
 			0,     // Offset to the first index we want to use
 			0);    // Offset to add to each index when looking up vertices
+
+		ImGui::Render(); // Turns this frame¡¦s UI into renderable triangles
+		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData()); // Draws it to the screen
 	}
 
 	// Frame END

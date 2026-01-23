@@ -22,6 +22,10 @@ private:
 	// Initialization helper methods - feel free to customize, combine, remove, etc.
 	void LoadShaders();
 	void CreateGeometry();
+	void ImGuiFresh(float);
+	//establish color as a member of the Game class
+	float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };
+	bool showDemoMenu = false;
 
 	// Note the usage of ComPtr below
 	//  - This is a smart pointer for objects that abide by the
