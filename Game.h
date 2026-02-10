@@ -3,9 +3,11 @@
 #include <d3d11.h>
 #include <wrl/client.h>
 #include <string>
+#include "BufferStructs.h"
 #include <vector>
 #include <memory>
 #include "Mesh.h"
+
 
 class Game
 {
@@ -22,6 +24,13 @@ public:
 	void OnResize();
 
 private:
+
+	// constant buffer
+	Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
+
+	// UI-editable data
+	DirectX::XMFLOAT4 colorTint;
+	DirectX::XMFLOAT3 offset;
 
 	// Initialization helper methods - feel free to customize, combine, remove, etc.
 	void LoadShaders();

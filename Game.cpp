@@ -30,6 +30,25 @@ Game::Game()
 	LoadShaders();
 	CreateGeometry();
 
+	// Initialize constant buffer data
+	colorTint = XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f); // slight red tint
+	offset = XMFLOAT3(0.1f, 0.0f, 0.0f);          // shift right
+
+
+	// create the constant buffer
+	D3D11_BUFFER_DESC cbDesc = {};
+	cbDesc.ByteWidth = sizeof(VertexShaderExternalData);
+	cbDesc.Usage = D3D11_USAGE_DYNAMIC;
+	cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	cbDesc.MiscFlags = 0;
+	cbDesc.StructureByteStride = 0;
+
+	Graphics::Device->CreateBuffer(&cbDesc, nullptr, vsConstantBuffer.GetAddressOf());
+
+	//bind constant buffer to vertex shader (slot 0)
+	Graphics::Context->VSSetConstantBuffers(0, 1, vsConstantBuffer.GetAddressOf());
+
 	// Set initial graphics API state
 	//  - These settings persist until we change them
 	//  - Some of these, like the primitive topology & input layout, probably won't change
@@ -254,7 +273,7 @@ void Game::CreateGeometry()
 	));
 }
 
-void BuildCustomWindow(float* color, bool* showDemoMenu, int* number, bool *showHappyMeter) {
+void BuildCustomWindow(float* color, bool* showDemoMenu, int* number, bool *showHappyMeter, DirectX::XMFLOAT4* colorTint, DirectX::XMFLOAT3* offset) {
 	// create a new window
 	ImGui::Begin("Custom Window");
 
@@ -264,6 +283,12 @@ void BuildCustomWindow(float* color, bool* showDemoMenu, int* number, bool *show
 	ImGui::Text("resolution: %d x %d", Window::Width(), Window::Height());
 	// edit the background color
 	ImGui::ColorEdit4("background color", color);
+	
+	ImGui::Separator();
+	ImGui::Text("Vertex Shader Controls");
+	ImGui::ColorEdit4("Color Tint", &colorTint->x);
+	ImGui::DragFloat3("Vertex Offset", &offset->x, 0.01f, -1.0f, 1.0f);
+	
 	//button to hide or show the window on click
 	if (ImGui::Button("show demo menu")) {
 		*showDemoMenu = !(*showDemoMenu);
@@ -346,7 +371,7 @@ void Game::ImGuiFresh(float deltaTime) {
 		NewWindowWithHappyMeter(&number, &happyMeterMessage);
 	}
 
-	BuildCustomWindow(color, &showDemoMenu, &number, &showHappyMeter);
+	BuildCustomWindow(color, &showDemoMenu, &number, &showHappyMeter, &colorTint, &offset);
 	BuildMeshStatsWindow(meshes);
 }
 
@@ -386,6 +411,20 @@ void Game::Draw(float deltaTime, float totalTime)
 		Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 	}
 
+	//update constant buffer with current UI values
+	{
+		D3D11_MAPPED_SUBRESOURCE mappedBuffer = {};
+		Graphics::Context->Map(vsConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBuffer);
+
+		VertexShaderExternalData data;
+		data.colorTint = colorTint;
+		data.offset = offset;
+		data.padding = 0.0f;
+
+		memcpy(mappedBuffer.pData, &data, sizeof(VertexShaderExternalData));
+		Graphics::Context->Unmap(vsConstantBuffer.Get(), 0);
+	}
+
 	// DRAW geometry
 	// - These steps are generally repeated for EACH object you draw
 	// - Other Direct3D calls will also be necessary to do more complex things
@@ -411,6 +450,10 @@ void Game::Draw(float deltaTime, float totalTime)
 		//	0,     // Offset to the first index we want to use
 		//	0);    // Offset to add to each index when looking up vertices
 
+		UINT stride = sizeof(Vertex);
+		UINT offset = 0;
+		Graphics::Context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
+		
 		for (auto& mesh : meshes) {
 			mesh->Draw(Graphics::Context);
 		}
