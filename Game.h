@@ -4,12 +4,9 @@
 #include <wrl/client.h>
 #include <string>
 #include "BufferStructs.h"
-<<<<<<< Updated upstream
 #include <vector>
 #include <memory>
 #include "Mesh.h"
-=======
->>>>>>> Stashed changes
 
 
 class Game
@@ -29,11 +26,8 @@ public:
 private:
 
 	// constant buffer
-<<<<<<< Updated upstream
 	Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
-=======
-	Microsoft::WRL::ComPtr<ID3D11Buffer> constantBuffer;
->>>>>>> Stashed changes
+
 
 	// UI-editable data
 	DirectX::XMFLOAT4 colorTint;
