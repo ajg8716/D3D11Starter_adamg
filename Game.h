@@ -3,6 +3,9 @@
 #include <d3d11.h>
 #include <wrl/client.h>
 #include <string>
+#include <vector>
+#include <memory>
+#include "Mesh.h"
 
 class Game
 {
@@ -24,6 +27,10 @@ private:
 	void LoadShaders();
 	void CreateGeometry();
 	void ImGuiFresh(float);
+
+	//mesh storage - using shared_ptr for proper lifetime management
+	std::vector<std::shared_ptr<Mesh>> meshes;
+
 	//establish color as a member of the Game class
 	float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };
 	bool showDemoMenu = false;
