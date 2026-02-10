@@ -35,6 +35,7 @@ Game::Game()
 	offset = XMFLOAT3(0.1f, 0.0f, 0.0f);          // shift right
 
 
+<<<<<<< Updated upstream
 	// create the constant buffer
 	D3D11_BUFFER_DESC cbDesc = {};
 	cbDesc.ByteWidth = sizeof(VertexShaderExternalData);
@@ -49,6 +50,8 @@ Game::Game()
 	//bind constant buffer to vertex shader (slot 0)
 	Graphics::Context->VSSetConstantBuffers(0, 1, vsConstantBuffer.GetAddressOf());
 
+=======
+>>>>>>> Stashed changes
 	// Set initial graphics API state
 	//  - These settings persist until we change them
 	//  - Some of these, like the primitive topology & input layout, probably won't change
