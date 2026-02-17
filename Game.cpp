@@ -9,6 +9,7 @@
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"
 #include "ImGui/imgui_impl_win32.h"
+
 #include <DirectXMath.h>
 
 // Needed for a helper function to load pre-compiled shader files
@@ -32,7 +33,7 @@ Game::Game()
 
 	// Initialize constant buffer data
 	colorTint = XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f); // slight red tint
-	offset = XMFLOAT3(0.1f, 0.0f, 0.0f);          // shift right
+	//offset = XMFLOAT3(0.1f, 0.0f, 0.0f);          // shift right
 
 	// create the constant buffer
 	D3D11_BUFFER_DESC cbDesc = {};
@@ -42,7 +43,6 @@ Game::Game()
 	cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	cbDesc.MiscFlags = 0;
 	cbDesc.StructureByteStride = 0;
-
 	Graphics::Device->CreateBuffer(&cbDesc, nullptr, vsConstantBuffer.GetAddressOf());
 
 	//bind constant buffer to vertex shader (slot 0)
@@ -270,6 +270,26 @@ void Game::CreateGeometry()
 		15, 
 		Graphics::Device
 	));
+
+	// create 5 entitities
+	//-----------------------------------------------------------------
+	// entity 0: triangle, left side, will rotate
+	entities.push_back(GameEntity(meshes[0]));
+	entities[0].GetTransform()->SetPosition(-0.6f, 0.3f, 0.0f);
+	// entity 1: triangle (shared mesh), right side, will move in sine wave
+	entities.push_back(GameEntity(meshes[0]));
+	entities[1].GetTransform()->SetPosition(0.6f, 0.3f, 0.0f);
+	// entity 2: square, center-top, will scale up and down
+	entities.push_back(GameEntity(meshes[1]));
+	entities[2].GetTransform()->SetPosition(0.0f, 0.5f, 0.0f);
+	// entity 3: square (shared mesh), center-bottom, will move left and right
+	entities.push_back(GameEntity(meshes[1]));
+	entities[3].GetTransform()->SetPosition(0.0f, -0.5f, 0.0f);
+	// entity 4: pentagon, center, will rotate
+	entities.push_back(GameEntity(meshes[2]));
+	entities[4].GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+
+
 }
 
 void BuildCustomWindow(float* color, bool* showDemoMenu, int* number, bool *showHappyMeter, DirectX::XMFLOAT4* colorTint, DirectX::XMFLOAT3* offset) {
@@ -370,7 +390,52 @@ void Game::ImGuiFresh(float deltaTime) {
 		NewWindowWithHappyMeter(&number, &happyMeterMessage);
 	}
 
-	BuildCustomWindow(color, &showDemoMenu, &number, &showHappyMeter, &colorTint, &offset);
+	// Main Window
+	// ---------------------------------------------------------------------
+	ImGui::Begin("Game Info");
+	ImGui::Text("fps: %.1f", ImGui::GetIO().Framerate); 
+	ImGui::Text("resolution: %d x %d", Window::Width(), Window::Height());
+	ImGui::ColorEdit4("Background", color); 
+	ImGui::Separator();
+	ImGui::ColorEdit4("Color Tint", &colorTint.x);
+	if (ImGui::Button("Toggle Demo")) 
+		showDemoMenu = !showDemoMenu; 
+	ImGui::End(); 
+
+	// entity inspector
+	// -----------------------------------------------------------------------
+	ImGui::Begin("Entities");
+	for (int i = 0; i < (int)entities.size(); i++)
+	{
+		// push a unique ID per entity so duplicate labels don't conflict
+		ImGui::PushID(i);
+
+		char label[32];
+		sprintf_s(label, "Entity %d", i);
+
+		if (ImGui::CollapsingHeader(label))
+		{
+			Transform* t = entities[i].GetTransform();
+
+			XMFLOAT3 pos = t->GetPosition();
+			XMFLOAT3 rot = t->GetPitchYawRoll();
+			XMFLOAT3 scl = t->GetScale();
+
+			if (ImGui::DragFloat3("Position", &pos.x, 0.01f))
+				t->SetPosition(pos);
+			if (ImGui::DragFloat3("Rotation", &rot.x, 0.01f))
+				t->SetRotation(rot);
+			if (ImGui::DragFloat3("Scale", &scl.x, 0.01f, 0.01f, 10.0f))
+				t->SetScale(scl);
+
+			ImGui::Text("Mesh indices: %d", entities[i].GetMesh()->GetIndexCount());
+		}
+
+		ImGui::PopID();
+	}
+	ImGui::End();
+
+	// mesh stats window
 	BuildMeshStatsWindow(meshes);
 }
 
@@ -393,6 +458,26 @@ void Game::Update(float deltaTime, float totalTime)
 	// Example input checking: Quit if the escape key is pressed
 	if (Input::KeyDown(VK_ESCAPE))
 		Window::Quit();
+
+	// entity 0: rotate continuously
+	entities[0].GetTransform()->Rotate(0.0f, 0.0f, 1.0f * deltaTime);
+	// entity 1: move in a horizontal sine wave
+	{
+		float s = sinf(totalTime * 2.0f) * 0.005f;
+		entities[1].GetTransform()->SetPosition(s, 0.0f, 0.0f);
+	}
+	// entity 2: pulsate scale
+	{
+		float pulse = 1.0f + 0.3f * sinf(totalTime * 3.0f);
+		entities[2].GetTransform()->SetScale(pulse, pulse, 1.0f);
+	}
+	// entity 3: move left and right
+	{
+		float x = sinf(totalTime) * 0.4f;
+		entities[3].GetTransform()->SetPosition(x, -0.5f, 0.0f);
+	}
+	// entity 4: rotate opposite direction
+	entities[4].GetTransform()->Rotate(0.0f, 0.0f, -0.8f * deltaTime);
 }
 
 // --------------------------------------------------------
@@ -410,19 +495,20 @@ void Game::Draw(float deltaTime, float totalTime)
 		Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 	}
 
+	//A4
 	//update constant buffer with current UI values
-	{
-		D3D11_MAPPED_SUBRESOURCE mappedBuffer = {};
-		Graphics::Context->Map(vsConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBuffer);
+	//{
+	//	D3D11_MAPPED_SUBRESOURCE mappedBuffer = {};
+	//	Graphics::Context->Map(vsConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBuffer);
 
-		VertexShaderExternalData data;
-		data.colorTint = colorTint;
-		data.offset = offset;
-		data.padding = 0.0f;
+	//	VertexShaderExternalData data;
+	//	data.colorTint = colorTint;
+	//	//data.offset = offset;
+	//	data.padding = 0.0f;
 
-		memcpy(mappedBuffer.pData, &data, sizeof(VertexShaderExternalData));
-		Graphics::Context->Unmap(vsConstantBuffer.Get(), 0);
-	}
+	//	memcpy(mappedBuffer.pData, &data, sizeof(VertexShaderExternalData));
+	//	Graphics::Context->Unmap(vsConstantBuffer.Get(), 0);
+	//}
 
 	// DRAW geometry
 	// - These steps are generally repeated for EACH object you draw
@@ -449,16 +535,43 @@ void Game::Draw(float deltaTime, float totalTime)
 		//	0,     // Offset to the first index we want to use
 		//	0);    // Offset to add to each index when looking up vertices
 
-		UINT stride = sizeof(Vertex);
+		/*UINT stride = sizeof(Vertex);
 		UINT offset = 0;
 		Graphics::Context->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
 		
 		for (auto& mesh : meshes) {
 			mesh->Draw(Graphics::Context);
+		}*/
+
+		//A5
+		// Draw each entity with its own matrix
+		for (auto& entity : entities)
+		{
+			// Build constant buffer data for this specific entity
+			VertexShaderExternalData cbData = {};
+			cbData.world = entity.GetTransform()->GetWorldMatrix();
+			cbData.colorTint = colorTint;
+
+			// Map, copy, unmap
+			D3D11_MAPPED_SUBRESOURCE mapped = {};
+			Graphics::Context->Map(vsConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+			memcpy(mapped.pData, &cbData, sizeof(VertexShaderExternalData));
+			Graphics::Context->Unmap(vsConstantBuffer.Get(), 0);
+
+			// Draw the entity (sets VB/IB and calls DrawIndexed)
+			entity.Draw(Graphics::Context);
 		}
 
 		ImGui::Render(); // Turns this frame¡¦s UI into renderable triangles
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData()); // Draws it to the screen
+		
+		//A4
+		// present
+		/*bool vsync = Graphics::VsyncState();
+		Graphics::SwapChain->Present(vsync ? 1 : 0, vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
+		Graphics::Context->OMSetRenderTargets(1,
+			Graphics::BackBufferRTV.GetAddressOf(),
+			Graphics::DepthBufferDSV.Get());*/
 	}
 
 	// Frame END

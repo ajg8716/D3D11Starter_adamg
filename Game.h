@@ -7,6 +7,7 @@
 #include <vector>
 #include <memory>
 #include "Mesh.h"
+#include "GameEntity.h"
 
 
 class Game
@@ -31,7 +32,7 @@ private:
 
 	// UI-editable data
 	DirectX::XMFLOAT4 colorTint;
-	DirectX::XMFLOAT3 offset;
+	//DirectX::XMFLOAT3 offset;
 
 	// Initialization helper methods - feel free to customize, combine, remove, etc.
 	void LoadShaders();
@@ -41,8 +42,13 @@ private:
 	//mesh storage - using shared_ptr for proper lifetime management
 	std::vector<std::shared_ptr<Mesh>> meshes;
 
+	// game entitites
+	std::vector<GameEntity> entities;
+
 	//establish color as a member of the Game class
 	float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };
+
+	// UI state
 	bool showDemoMenu = false;
 	bool showHappyMeter = false;
 	int number = 0;

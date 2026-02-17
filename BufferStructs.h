@@ -3,7 +3,7 @@
 
 struct VertexShaderExternalData
 {
-	DirectX::XMFLOAT4 colorTint;
-	DirectX::XMFLOAT3 offset;
-	float padding;
+	DirectX::XMFLOAT4 colorTint; // 16 bytes - color multiplier
+	DirectX::XMFLOAT4X4 world; // 64 bytes - world transform matrix
+	//float padding;
 };

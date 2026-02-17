@@ -1,5 +1,4 @@
 
-
 //Constant buffer for external data from c++
 // - Must match the VertexShaderExternalData struct in C++
 // - Data is sent from CPU to GPU each frame
