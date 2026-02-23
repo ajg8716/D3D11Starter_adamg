@@ -8,6 +8,7 @@
 #include <memory>
 #include "Mesh.h"
 #include "GameEntity.h"
+#include "Camera.h"
 
 
 class Game
@@ -44,6 +45,11 @@ private:
 
 	// game entitites
 	std::vector<GameEntity> entities;
+
+	// Cameras 
+	std::vector<std::shared_ptr<Camera>> cameras;
+	int activeCameraIndex; // tracks which camera is currently active
+
 
 	//establish color as a member of the Game class
 	float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };

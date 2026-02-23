@@ -5,8 +5,10 @@
 cbuffer ExternalData : register(b0)
 {
     float4 colorTint; // color multiplier
-    float3 offset;	  // position offset
 	//Note: padding is automatic in HLSL
+    float4x4 worldMatrix; // object's world transform (position, rotation, scale)
+    float4x4 viewMatrix; // camera's view matrix (camera position and orientation)
+    float4x4 projectionMatrix; // camera's projection matrix (field of view, aspect ratio, near and far planes)
 }
 
 // Struct representing a single vertex worth of data
@@ -54,7 +56,7 @@ VertexToPixel main( VertexShaderInput input )
 	VertexToPixel output;
 
 	// Apply the offset from the constant buffer to the position
-    float3 adjustedPosition = input.localPosition + offset;
+    //float3 adjustedPosition = input.localPosition + offset;
 	
 	// Here we're essentially passing the input position directly through to the next
 	// stage (rasterizer), though it needs to be a 4-component vector now.  
@@ -65,8 +67,11 @@ VertexToPixel main( VertexShaderInput input )
 	//   which we're leaving at 1.0 for now (this is more useful when dealing with 
 	//   a perspective projection matrix, which we'll get to in the future).
 	
+	// build the combined world-view-projection matrix by multiplying the individual matrices together
+    float4x4 wvp = mul(projectionMatrix, mul(viewMatrix, worldMatrix)); // World-View-Projection matrix))
+	
 	//convert to float4 for screen position
-	output.screenPosition = float4(adjustedPosition, 1.0f);
+    output.screenPosition = mul(wvp, float4(input.localPosition, 1.0f));
 
 	// Pass the color through 
 	// - The values will be interpolated per-pixel by the rasterizer

@@ -21,6 +21,7 @@
     <ClCompile Include="Window.cpp" />
     <ClCompile Include="Transform.cpp" />
     <ClCompile Include="GameEntity.cpp" />
+    <ClCompile Include="Camera.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BufferStructs.h" />
@@ -41,5 +42,6 @@
     <ClInclude Include="Window.h" />
     <ClInclude Include="Transform.h" />
     <ClInclude Include="GameEntity.h" />
+    <ClInclude Include="Camera.h" />
   </ItemGroup>
 </Project>

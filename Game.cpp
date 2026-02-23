@@ -78,6 +78,29 @@ Game::Game()
 		// Pick a style 
 		ImGui::StyleColorsDark();
 	}
+
+	// -------------------------------------------------------
+	// Create Cameras
+	// -------------------------------------------------------
+	float aspectRatio = (float)Window::Width() / Window::Height();
+
+	// Camera 0: default position, normal FOV
+	cameras.push_back(std::make_shared<Camera>(
+		0.0f, 0.0f, -5.0f,		// position
+		5.0f,					// move speed
+		0.3f,					// look speed
+		XM_PIDIV4,				// 45 degree FOV
+		aspectRatio));
+
+	// Camera 1: higher up, wider FOV
+	cameras.push_back(std::make_shared<Camera>(
+		0.0f, 3.0f, -8.0f,		// position
+		8.0f,					// move speed (faster)
+		0.2f,					// look speed
+		XM_PI / 3.0f,			// 60 degree FOV
+		aspectRatio));
+
+	activeCameraIndex = 0;
 }
 
 
@@ -275,21 +298,19 @@ void Game::CreateGeometry()
 	//-----------------------------------------------------------------
 	// entity 0: triangle, left side, will rotate
 	entities.push_back(GameEntity(meshes[0]));
-	entities[0].GetTransform()->SetPosition(-0.6f, 0.3f, 0.0f);
+	entities[0].GetTransform()->SetPosition(-0.6f, 0.3f, 5.0f);
 	// entity 1: triangle (shared mesh), right side, will move in sine wave
 	entities.push_back(GameEntity(meshes[0]));
-	entities[1].GetTransform()->SetPosition(0.6f, 0.3f, 0.0f);
+	entities[1].GetTransform()->SetPosition(0.6f, 0.3f, 5.0f);
 	// entity 2: square, center-top, will scale up and down
 	entities.push_back(GameEntity(meshes[1]));
-	entities[2].GetTransform()->SetPosition(0.0f, 0.5f, 0.0f);
+	entities[2].GetTransform()->SetPosition(0.0f, 0.5f, 5.0f);
 	// entity 3: square (shared mesh), center-bottom, will move left and right
 	entities.push_back(GameEntity(meshes[1]));
-	entities[3].GetTransform()->SetPosition(0.0f, -0.5f, 0.0f);
+	entities[3].GetTransform()->SetPosition(0.0f, -0.5f, 5.0f);
 	// entity 4: pentagon, center, will rotate
 	entities.push_back(GameEntity(meshes[2]));
-	entities[4].GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
-
-
+	entities[4].GetTransform()->SetPosition(0.0f, 0.0f, 5.0f);
 }
 
 void BuildCustomWindow(float* color, bool* showDemoMenu, int* number, bool *showHappyMeter, DirectX::XMFLOAT4* colorTint, DirectX::XMFLOAT3* offset) {
@@ -402,6 +423,49 @@ void Game::ImGuiFresh(float deltaTime) {
 		showDemoMenu = !showDemoMenu; 
 	ImGui::End(); 
 
+	// Camera window
+	// ---------------------------------------------------------------------
+	ImGui::Begin("Cameras");
+
+	//Camera switched - one button per camera
+	for(int i = 0; i < (int)cameras.size(); i++)
+	{
+		char label[32];
+		sprintf_s(label, "Camera %d", i);
+
+		//highlight the active camera's button
+		if (i == activeCameraIndex)
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 1.0f)); // green for active
+		
+		if (ImGui::Button(label))
+			activeCameraIndex = i; 
+
+		if (i == activeCameraIndex)
+			ImGui::PopStyleColor();
+
+		ImGui::SameLine();
+	}
+	ImGui::NewLine();
+	ImGui::Separator();
+
+	// active camera details
+	auto& cam = cameras[activeCameraIndex];
+	Transform& t = cam->GetTransform();
+
+	XMFLOAT3 pos = t.GetPosition();
+	XMFLOAT3 rot = t.GetPitchYawRoll();
+	XMFLOAT3 fwd = t.GetForward();
+
+	ImGui::Text("Active: Camera %d", activeCameraIndex);
+	ImGui::Text("Position:  %.2f, %.2f, %.2f", pos.x, pos.y, pos.z);
+	ImGui::Text("Rotation:  %.2f, %.2f, %.2f", rot.x, rot.y, rot.z);
+	ImGui::Text("Forward:   %.2f, %.2f, %.2f", fwd.x, fwd.y, fwd.z);
+	ImGui::Text("FOV:       %.1f degrees", XMConvertToDegrees(cam->GetFOV()));
+	ImGui::Text("MoveSpeed: %.1f", cam->GetMoveSpeed());
+	ImGui::Text("LookSpeed: %.1f", cam->GetLookSpeed());
+
+	ImGui::End();
+
 	// entity inspector
 	// -----------------------------------------------------------------------
 	ImGui::Begin("Entities");
@@ -445,7 +509,9 @@ void Game::ImGuiFresh(float deltaTime) {
 // --------------------------------------------------------
 void Game::OnResize()
 {
-	
+	float aspectRatio = (float)Window::Width() / Window::Height();
+	for(auto& cam : cameras)
+		cam->UpdateProjectionMatrix(aspectRatio);
 }
 
 // --------------------------------------------------------
@@ -458,6 +524,9 @@ void Game::Update(float deltaTime, float totalTime)
 	// Example input checking: Quit if the escape key is pressed
 	if (Input::KeyDown(VK_ESCAPE))
 		Window::Quit();
+
+	// update only active camera
+	cameras[activeCameraIndex]->Update(deltaTime);
 
 	// entity 0: rotate continuously
 	entities[0].GetTransform()->Rotate(0.0f, 0.0f, 1.0f * deltaTime);
@@ -543,6 +612,12 @@ void Game::Draw(float deltaTime, float totalTime)
 			mesh->Draw(Graphics::Context);
 		}*/
 
+		//a6
+		// grab active camera matrices
+		XMFLOAT4X4 view = cameras[activeCameraIndex]->GetViewMatrix();
+		XMFLOAT4X4 projection = cameras[activeCameraIndex]->GetProjectionMatrix();
+
+
 		//A5
 		// Draw each entity with its own matrix
 		for (auto& entity : entities)
@@ -551,6 +626,8 @@ void Game::Draw(float deltaTime, float totalTime)
 			VertexShaderExternalData cbData = {};
 			cbData.world = entity.GetTransform()->GetWorldMatrix();
 			cbData.colorTint = colorTint;
+			cbData.view = view;
+			cbData.projection = projection;
 
 			// Map, copy, unmap
 			D3D11_MAPPED_SUBRESOURCE mapped = {};

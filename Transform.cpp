@@ -92,6 +92,56 @@ void Transform::MoveAbsolute(float x, float y, float z)
 	dirty = true;
 }
 
+void Transform::MoveRelative(float x, float y, float z)
+{
+	// put te desired movement in a vector
+	XMVECTOR movement = XMVectorSet(x, y, z, 0.0f);
+
+	// crate a quaternion from the current pitch/yaw/roll
+	XMVECTOR rotQuat = XMQuaternionRotationRollPitchYaw(rotation.x, rotation.y, rotation.z);
+
+	// rotate the movement direction by the transform's orientation
+	XMVECTOR relativeMovement = XMVector3Rotate(movement, rotQuat);
+
+	//add the rotated movement to the current position
+	XMVECTOR pos = XMLoadFloat3(&position);
+	XMStoreFloat3(&position, XMVectorAdd(pos, relativeMovement));
+	dirty = true;
+}
+
+void Transform::MoveRelative(XMFLOAT3 offset)
+{
+	// Just call the other MoveRelative function to avoid code duplication
+	MoveRelative(offset.x, offset.y, offset.z);
+}
+
+XMFLOAT3 Transform::GetRight() {
+	// The right vector in world space is the local right vector (1, 0, 0) rotated by the transform's orientation
+	XMVECTOR worldRight = XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
+	XMVECTOR rotQuat = XMQuaternionRotationRollPitchYaw(rotation.x, rotation.y, rotation.z);
+	XMFLOAT3 result;
+	XMStoreFloat3(&result, XMVector3Rotate(worldRight, rotQuat));
+	return result;
+}
+
+XMFLOAT3 Transform::GetUp() {
+	// The up vector in world space is the local up vector (0, 1, 0) rotated by the transform's orientation
+	XMVECTOR worldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	XMVECTOR rotQuat = XMQuaternionRotationRollPitchYaw(rotation.x, rotation.y, rotation.z);
+	XMFLOAT3 result;
+	XMStoreFloat3(&result, XMVector3Rotate(worldUp, rotQuat));
+	return result;
+}
+
+XMFLOAT3 Transform::GetForward() {
+	// The forward vector in world space is the local forward vector (0, 0, 1) rotated by the transform's orientation
+	XMVECTOR worldForward = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+	XMVECTOR rotQuat = XMQuaternionRotationRollPitchYaw(rotation.x, rotation.y, rotation.z);
+	XMFLOAT3 result;
+	XMStoreFloat3(&result, XMVector3Rotate(worldForward, rotQuat));
+	return result;
+}
+
 void Transform::MoveAbsolute(XMFLOAT3 offset)
 {
 	position.x += offset.x;
