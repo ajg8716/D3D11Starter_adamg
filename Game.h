@@ -9,6 +9,7 @@
 #include "Mesh.h"
 #include "GameEntity.h"
 #include "Camera.h"
+#include "Material.h"
 
 
 class Game
@@ -42,6 +43,8 @@ private:
 
 	//mesh storage - using shared_ptr for proper lifetime management
 	std::vector<std::shared_ptr<Mesh>> meshes;
+
+	std::vector<std::shared_ptr<Material>> materials;
 
 	// game entitites
 	std::vector<GameEntity> entities;

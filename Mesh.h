@@ -16,6 +16,11 @@ public:
 		int indexCount,
 		Microsoft::WRL::ComPtr<ID3D11Device> device
 	);
+	Mesh(
+		const wchar_t* objFile, 
+		Microsoft::WRL::ComPtr<ID3D11Device> device
+	);
+
 	// destructor
 	~Mesh();
 

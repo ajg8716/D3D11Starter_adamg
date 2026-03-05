@@ -66,8 +66,8 @@ Game::Game()
 		// Set the active vertex and pixel shaders
 		//  - Once you start applying different shaders to different objects,
 		//    these calls will need to happen multiple times per frame
-		Graphics::Context->VSSetShader(vertexShader.Get(), 0, 0);
-		Graphics::Context->PSSetShader(pixelShader.Get(), 0, 0);
+		/*Graphics::Context->VSSetShader(vertexShader.Get(), 0, 0);
+		Graphics::Context->PSSetShader(pixelShader.Get(), 0, 0);*/
 		
 		// initialize ImGui & platform/render backends
 		IMGUI_CHECKVERSION();
@@ -135,6 +135,8 @@ void Game::LoadShaders()
 	ID3DBlob* pixelShaderBlob;
 	ID3DBlob* vertexShaderBlob;
 
+	Microsoft::WRL::ComPtr<ID3D11VertexShader> vs;
+	Microsoft::WRL::ComPtr<ID3D11PixelShader> ps;
 	// Loading shaders
 	//  - Visual Studio will compile our shaders at build time
 	//  - They are saved as .cso (Compiled Shader Object) files
@@ -152,13 +154,13 @@ void Game::LoadShaders()
 			pixelShaderBlob->GetBufferPointer(),	// Pointer to blob's contents
 			pixelShaderBlob->GetBufferSize(),		// How big is that data?
 			0,										// No classes in this shader
-			pixelShader.GetAddressOf());			// Address of the ID3D11PixelShader pointer
+			ps.GetAddressOf());			// Address of the ID3D11PixelShader pointer
 
 		Graphics::Device->CreateVertexShader(
 			vertexShaderBlob->GetBufferPointer(),	// Get a pointer to the blob's contents
 			vertexShaderBlob->GetBufferSize(),		// How big is that data?
 			0,										// No classes in this shader
-			vertexShader.GetAddressOf());			// The address of the ID3D11VertexShader pointer
+			vs.GetAddressOf());			// The address of the ID3D11VertexShader pointer
 	}
 
 	// Create an input layout 
@@ -167,7 +169,7 @@ void Game::LoadShaders()
 	//  - Doing this NOW because it requires a vertex shader's byte code to verify against!
 	//  - Luckily, we already have that loaded (the vertex shader blob above)
 	{
-		D3D11_INPUT_ELEMENT_DESC inputElements[2] = {};
+		D3D11_INPUT_ELEMENT_DESC inputElements[3] = {};
 
 		// Set up the first element - a position, which is 3 float values
 		inputElements[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;				// Most formats are described as color channels; really it just means "Three 32-bit floats"
@@ -176,16 +178,31 @@ void Game::LoadShaders()
 
 		// Set up the second element - a color, which is 4 more float values
 		inputElements[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;			// 4x 32-bit floats
-		inputElements[1].SemanticName = "COLOR";							// Match our vertex shader input!
+		inputElements[1].SemanticName = "NORMAL";							// Match our vertex shader input!
 		inputElements[1].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;	// After the previous element
+
+		inputElements[2].SemanticName = "TEXCOORD";
+		inputElements[2].Format = DXGI_FORMAT_R32G32_FLOAT;
+		inputElements[2].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
 
 		// Create the input layout, verifying our description against actual shader code
 		Graphics::Device->CreateInputLayout(
 			inputElements,							// An array of descriptions
-			2,										// How many elements in that array?
+			3,										// How many elements in that array?
 			vertexShaderBlob->GetBufferPointer(),	// Pointer to the code of a shader that uses this layout
 			vertexShaderBlob->GetBufferSize(),		// Size of the shader code that uses this layout
 			inputLayout.GetAddressOf());			// Address of the resulting ID3D11InputLayout pointer
+
+		vertexShaderBlob->Release();
+		pixelShaderBlob->Release();
+
+		// Create 3 materials 
+		materials.push_back(std::make_shared<Material>(
+			DirectX::XMFLOAT4(1, 0, 0, 1), vs, ps)); // red
+		materials.push_back(std::make_shared<Material>(
+			DirectX::XMFLOAT4(0, 1, 0, 1), vs, ps)); // green
+		materials.push_back(std::make_shared<Material>(
+			DirectX::XMFLOAT4(0, 0, 1, 1), vs, ps)); // blue
 	}
 }
 
@@ -195,122 +212,131 @@ void Game::LoadShaders()
 // --------------------------------------------------------
 void Game::CreateGeometry()
 {
-	// Create some temporary variables to represent colors
-	// - Not necessary, just makes things more readable
-	XMFLOAT4 red = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
-	XMFLOAT4 green = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
-	XMFLOAT4 blue = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
-	XMFLOAT4 yellow = XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f);
+	//// Create some temporary variables to represent colors
+	//// - Not necessary, just makes things more readable
+	//XMFLOAT4 red = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
+	//XMFLOAT4 green = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
+	//XMFLOAT4 blue = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
+	//XMFLOAT4 yellow = XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f);
 
-	// Set up the vertices of the triangle we would like to draw
-	// - We're going to copy this array, exactly as it exists in CPU memory
-	//    over to a Direct3D-controlled data structure on the GPU (the vertex buffer)
-	// - Note: Since we don't have a camera or really any concept of
-	//    a "3d world" yet, we're simply describing positions within the
-	//    bounds of how the rasterizer sees our screen: [-1 to +1] on X and Y
-	// - This means (0,0) is at the very center of the screen.
-	// - These are known as "Normalized Device Coordinates" or "Homogeneous 
-	//    Screen Coords", which are ways to describe a position without
-	//    knowing the exact size (in pixels) of the image/window/etc.  
-	// - Long story short: Resizing the window also resizes the triangle,
-	//    since we're describing the triangle in terms of the window itself
-	Vertex triangleVertices[] =
-	{
-		{ XMFLOAT3(+0.0f, +0.5f, +0.0f), red }, 
-		{ XMFLOAT3(+0.5f, -0.5f, +0.0f), blue },
-		{ XMFLOAT3(-0.5f, -0.5f, +0.0f), green },
-	};
+	//// Set up the vertices of the triangle we would like to draw
+	//// - We're going to copy this array, exactly as it exists in CPU memory
+	////    over to a Direct3D-controlled data structure on the GPU (the vertex buffer)
+	//// - Note: Since we don't have a camera or really any concept of
+	////    a "3d world" yet, we're simply describing positions within the
+	////    bounds of how the rasterizer sees our screen: [-1 to +1] on X and Y
+	//// - This means (0,0) is at the very center of the screen.
+	//// - These are known as "Normalized Device Coordinates" or "Homogeneous 
+	////    Screen Coords", which are ways to describe a position without
+	////    knowing the exact size (in pixels) of the image/window/etc.  
+	//// - Long story short: Resizing the window also resizes the triangle,
+	////    since we're describing the triangle in terms of the window itself
+	//Vertex triangleVertices[] =
+	//{
+	//	{ XMFLOAT3(+0.0f, +0.5f, +0.0f), red }, 
+	//	{ XMFLOAT3(+0.5f, -0.5f, +0.0f), blue },
+	//	{ XMFLOAT3(-0.5f, -0.5f, +0.0f), green },
+	//};
 
-	// Set up indices, which tell us which vertices to use and in which order
-	// - This is redundant for just 3 vertices, but will be more useful later
-	// - Indices are technically not required if the vertices are in the buffer 
-	//    in the correct order and each one will be used exactly once
-	// - But just to see how it's done...
-	unsigned int triangleIndices[] = { 0, 1, 2 };
+	//// Set up indices, which tell us which vertices to use and in which order
+	//// - This is redundant for just 3 vertices, but will be more useful later
+	//// - Indices are technically not required if the vertices are in the buffer 
+	////    in the correct order and each one will be used exactly once
+	//// - But just to see how it's done...
+	//unsigned int triangleIndices[] = { 0, 1, 2 };
 
-	// create the mesh using make_shared
-	meshes.push_back(std::make_shared<Mesh>(
-		triangleVertices,
-		3, //vertex count
-		triangleIndices,
-		3, //index count
-		Graphics::Device
-	));
+	//// create the mesh using make_shared
+	//meshes.push_back(std::make_shared<Mesh>(
+	//	triangleVertices,
+	//	3, //vertex count
+	//	triangleIndices,
+	//	3, //index count
+	//	Graphics::Device
+	//));
 
-	//square
-	Vertex squareVertices[] =
-	{
-		{ XMFLOAT3(-0.8f, +0.8f, +0.0f), red },		// top-left
-		{ XMFLOAT3(-0.3f, +0.8f, +0.0f), blue },    // top-right
-		{ XMFLOAT3(-0.3f, +0.3f, +0.0f), green },   // bottom-right
-		{ XMFLOAT3(-0.8f, +0.3f, +0.0f), yellow }	// bottom-left
-	};
+	////square
+	//Vertex squareVertices[] =
+	//{
+	//	{ XMFLOAT3(-0.8f, +0.8f, +0.0f), red },		// top-left
+	//	{ XMFLOAT3(-0.3f, +0.8f, +0.0f), blue },    // top-right
+	//	{ XMFLOAT3(-0.3f, +0.3f, +0.0f), green },   // bottom-right
+	//	{ XMFLOAT3(-0.8f, +0.3f, +0.0f), yellow }	// bottom-left
+	//};
 
-	// indices for the square (two triangle)
-	// triangle 1: top-left, top-right, bottom right (0,1,2)
-	// triangle 2: top-left, bottom-right, bottom-left (0,2,3)
-	unsigned int squareIndices[] = 
-	{ 
-		0, 1, 2,
-		0, 2, 3 
-	};
+	//// indices for the square (two triangle)
+	//// triangle 1: top-left, top-right, bottom right (0,1,2)
+	//// triangle 2: top-left, bottom-right, bottom-left (0,2,3)
+	//unsigned int squareIndices[] = 
+	//{ 
+	//	0, 1, 2,
+	//	0, 2, 3 
+	//};
 
-	meshes.push_back(std::make_shared<Mesh>(
-		squareVertices,
-		4,
-		squareIndices,
-		6, 
-		Graphics::Device
-	));
+	//meshes.push_back(std::make_shared<Mesh>(
+	//	squareVertices,
+	//	4,
+	//	squareIndices,
+	//	6, 
+	//	Graphics::Device
+	//));
 
-	//pentagon
-	Vertex pentagonVertices[] =
-	{
-		// center vertex
-		{ XMFLOAT3(+0.6f, +0.0f, +0.0f), red },
+	////pentagon
+	//Vertex pentagonVertices[] =
+	//{
+	//	// center vertex
+	//	{ XMFLOAT3(+0.6f, +0.0f, +0.0f), red },
 
-		// outer vertices
-		{ XMFLOAT3(+0.6f, +0.4f, +0.0f), blue },      // top
-		{ XMFLOAT3(+0.98f, +0.12f, +0.0f), green },   // top-right
-		{ XMFLOAT3(+0.85f, -0.29f, +0.0f), yellow },  // bottom-right
-		{ XMFLOAT3(+0.35f, -0.29f, +0.0f), green },   // bottom-left
-		{ XMFLOAT3(+0.22f, +0.12f, +0.0f), blue }     // top-left
-	};
+	//	// outer vertices
+	//	{ XMFLOAT3(+0.6f, +0.4f, +0.0f), blue },      // top
+	//	{ XMFLOAT3(+0.98f, +0.12f, +0.0f), green },   // top-right
+	//	{ XMFLOAT3(+0.85f, -0.29f, +0.0f), yellow },  // bottom-right
+	//	{ XMFLOAT3(+0.35f, -0.29f, +0.0f), green },   // bottom-left
+	//	{ XMFLOAT3(+0.22f, +0.12f, +0.0f), blue }     // top-left
+	//};
 
-	// indices for pentagon (5 triangles
-	unsigned int pentagonIndices[] = {
-		0, 1, 2,
-		0, 2, 3,
-		0, 3, 4,
-		0, 4, 5,
-		0, 5, 1
-	};
+	//// indices for pentagon (5 triangles
+	//unsigned int pentagonIndices[] = {
+	//	0, 1, 2,
+	//	0, 2, 3,
+	//	0, 3, 4,
+	//	0, 4, 5,
+	//	0, 5, 1
+	//};
 
-	meshes.push_back(std::make_shared<Mesh>(
-		pentagonVertices,
-		6, 
-		pentagonIndices,
-		15, 
-		Graphics::Device
-	));
+	//meshes.push_back(std::make_shared<Mesh>(
+	//	pentagonVertices,
+	//	6, 
+	//	pentagonIndices,
+	//	15, 
+	//	Graphics::Device
+	//));
+
+	// load meshes from the OBJ file
+	meshes.push_back(std::make_shared<Mesh>(FixPath(L"../../Assets/cube.obj").c_str(), Graphics::Device));
+	meshes.push_back(std::make_shared<Mesh>(FixPath(L"../.. / Assets / sphere.obj").c_str(), Graphics::Device));
+	meshes.push_back(std::make_shared<Mesh>(FixPath(L"../../Assets/helix.obj").c_str(), Graphics::Device));
 
 	// create 5 entitities
 	//-----------------------------------------------------------------
-	// entity 0: triangle, left side, will rotate
-	entities.push_back(GameEntity(meshes[0]));
-	entities[0].GetTransform()->SetPosition(-0.6f, 0.3f, 5.0f);
-	// entity 1: triangle (shared mesh), right side, will move in sine wave
-	entities.push_back(GameEntity(meshes[0]));
-	entities[1].GetTransform()->SetPosition(0.6f, 0.3f, 5.0f);
-	// entity 2: square, center-top, will scale up and down
-	entities.push_back(GameEntity(meshes[1]));
-	entities[2].GetTransform()->SetPosition(0.0f, 0.5f, 5.0f);
-	// entity 3: square (shared mesh), center-bottom, will move left and right
-	entities.push_back(GameEntity(meshes[1]));
-	entities[3].GetTransform()->SetPosition(0.0f, -0.5f, 5.0f);
-	// entity 4: pentagon, center, will rotate
-	entities.push_back(GameEntity(meshes[2]));
-	entities[4].GetTransform()->SetPosition(0.0f, 0.0f, 5.0f);
+	// entity 0: cube, left, will rotate
+	entities.push_back(GameEntity(meshes[0], materials[0]));
+	entities[0].GetTransform()->SetPosition(-3.0f, 0.0f, 0.0f);
+
+	// entity 1: sphere, center, will move in sine wave
+	entities.push_back(GameEntity(meshes[1], materials[1]));
+	entities[1].GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
+
+	// entity 2: helix, right, will scale up and down
+	entities.push_back(GameEntity(meshes[2], materials[2]));
+	entities[2].GetTransform()->SetPosition(3.0f, 0.0f, 0.0f);
+
+	//entity 3: cube, center, will move left and right
+	entities.push_back(GameEntity(meshes[0], materials[1]));
+	entities[3].GetTransform()->SetPosition(-1.5f, 2.0f, 0.0f);
+
+	// entity 4: sphere (shared mesh), will rotate opposite direction
+	entities.push_back(GameEntity(meshes[1], materials[2]));
+	entities[4].GetTransform()->SetPosition(1.5f, 2.0f, 0.0f);
 }
 
 void BuildCustomWindow(float* color, bool* showDemoMenu, int* number, bool *showHappyMeter, DirectX::XMFLOAT4* colorTint, DirectX::XMFLOAT3* offset) {
@@ -622,10 +648,16 @@ void Game::Draw(float deltaTime, float totalTime)
 		// Draw each entity with its own matrix
 		for (auto& entity : entities)
 		{
+			// get the materials
+			auto mat = entity.GetMaterial();
+			// set the shaders for this entity's material
+			/*Graphics::Context->VSSetShader(mat->GetVertexShader().Get(), 0, 0);
+			Graphics::Context->PSSetShader(mat->GetPixelShader().Get(), 0, 0);*/
+
 			// Build constant buffer data for this specific entity
 			VertexShaderExternalData cbData = {};
 			cbData.world = entity.GetTransform()->GetWorldMatrix();
-			cbData.colorTint = colorTint;
+			cbData.colorTint = mat->GetColorTint();
 			cbData.view = view;
 			cbData.projection = projection;
 
