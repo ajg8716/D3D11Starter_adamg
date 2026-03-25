@@ -48,6 +48,14 @@ Game::Game()
 	//bind constant buffer to vertex shader (slot 0)
 	Graphics::Context->VSSetConstantBuffers(0, 1, vsConstantBuffer.GetAddressOf());
 
+	//create pixel shader constant buffer (for color tint)
+	D3D11_BUFFER_DESC psDesc = {};
+	psDesc.ByteWidth = sizeof(PixelShaderExternalData);
+	psDesc.Usage = D3D11_USAGE_DYNAMIC;
+	psDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	psDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	Graphics::Device->CreateBuffer(&psDesc, nullptr, psConstantBuffer.GetAddressOf());
+
 	// Set initial graphics API state
 	//  - These settings persist until we change them
 	//  - Some of these, like the primitive topology & input layout, probably won't change
@@ -176,8 +184,8 @@ void Game::LoadShaders()
 		inputElements[0].SemanticName = "POSITION";							// This is "POSITION" - needs to match the semantics in our vertex shader input!
 		inputElements[0].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;	// How far into the vertex is this?  Assume it's after the previous element
 
-		// Set up the second element - a color, which is 4 more float values
-		inputElements[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;			// 4x 32-bit floats
+		// Set up the second element - a normal, which is 4 more float values
+		inputElements[1].Format = DXGI_FORMAT_R32G32B32_FLOAT;			// 4x 32-bit floats
 		inputElements[1].SemanticName = "NORMAL";							// Match our vertex shader input!
 		inputElements[1].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;	// After the previous element
 
@@ -196,13 +204,47 @@ void Game::LoadShaders()
 		vertexShaderBlob->Release();
 		pixelShaderBlob->Release();
 
-		// Create 3 materials 
-		materials.push_back(std::make_shared<Material>(
-			DirectX::XMFLOAT4(1, 0, 0, 1), vs, ps)); // red
-		materials.push_back(std::make_shared<Material>(
-			DirectX::XMFLOAT4(0, 1, 0, 1), vs, ps)); // green
-		materials.push_back(std::make_shared<Material>(
-			DirectX::XMFLOAT4(0, 0, 1, 1), vs, ps)); // blue
+		// Helper lambda to load a pixel shader from a .cso file
+		auto LoadPS = [&](const wchar_t* path) -> Microsoft::WRL::ComPtr<ID3D11PixelShader>
+			{
+				Microsoft::WRL::ComPtr<ID3D11PixelShader> ps;
+				ID3DBlob* blob = nullptr;
+
+				HRESULT hr = D3DReadFileToBlob(FixPath(path).c_str(), &blob);
+				if (FAILED(hr) || blob == nullptr)
+				{
+					// Will tell you exactly which file is missing
+					OutputDebugStringW(L"FAILED to load shader: ");
+					OutputDebugStringW(path);
+					OutputDebugStringW(L"\n");
+					return nullptr;  // return null so you get a cleaner error
+				}
+
+				Graphics::Device->CreatePixelShader(
+					blob->GetBufferPointer(), blob->GetBufferSize(), 0, ps.GetAddressOf());
+				blob->Release();
+				return ps;
+			};
+
+		// --- Load each pixel shader ---
+		auto psColorTint = LoadPS(L"PSColorTint.cso");
+		auto psUV = LoadPS(L"PSUVData.cso");
+		auto psNormal = LoadPS(L"PSNormalData.cso");
+		auto psCustom = LoadPS(L"PSCustom.cso");
+
+		// --- Materials ---
+		// materials[0]: color tint, red
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 0, 0, 1), vs, psColorTint));
+		// materials[1]: color tint, green
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(0, 1, 0, 1), vs, psColorTint));
+		// materials[2]: color tint, blue
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(0, 0, 1, 1), vs, psColorTint));
+		// materials[3]: UV debug
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psUV));
+		// materials[4]: Normal debug
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psNormal));
+		// materials[5]: Custom
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psCustom));
 	}
 }
 
@@ -313,14 +355,14 @@ void Game::CreateGeometry()
 
 	// load meshes from the OBJ file
 	meshes.push_back(std::make_shared<Mesh>(FixPath(L"../../Assets/cube.obj").c_str(), Graphics::Device));
-	meshes.push_back(std::make_shared<Mesh>(FixPath(L"../.. / Assets / sphere.obj").c_str(), Graphics::Device));
+	meshes.push_back(std::make_shared<Mesh>(FixPath(L"../../Assets/sphere.obj").c_str(), Graphics::Device));
 	meshes.push_back(std::make_shared<Mesh>(FixPath(L"../../Assets/helix.obj").c_str(), Graphics::Device));
 
-	// create 5 entitities
+	// create All entitities
 	//-----------------------------------------------------------------
 	// entity 0: cube, left, will rotate
 	entities.push_back(GameEntity(meshes[0], materials[0]));
-	entities[0].GetTransform()->SetPosition(-3.0f, 0.0f, 0.0f);
+	entities[0].GetTransform()->SetPosition(-2.0f, 0.0f, 0.0f);
 
 	// entity 1: sphere, center, will move in sine wave
 	entities.push_back(GameEntity(meshes[1], materials[1]));
@@ -328,15 +370,44 @@ void Game::CreateGeometry()
 
 	// entity 2: helix, right, will scale up and down
 	entities.push_back(GameEntity(meshes[2], materials[2]));
-	entities[2].GetTransform()->SetPosition(3.0f, 0.0f, 0.0f);
+	entities[2].GetTransform()->SetPosition(4.0f, 0.0f, 0.0f);
 
 	//entity 3: cube, center, will move left and right
 	entities.push_back(GameEntity(meshes[0], materials[1]));
-	entities[3].GetTransform()->SetPosition(-1.5f, 2.0f, 0.0f);
+	entities[3].GetTransform()->SetPosition(-4.5f, 4.0f, 0.0f);
 
 	// entity 4: sphere (shared mesh), will rotate opposite direction
 	entities.push_back(GameEntity(meshes[1], materials[2]));
-	entities[4].GetTransform()->SetPosition(1.5f, 2.0f, 0.0f);
+	entities[4].GetTransform()->SetPosition(2.0f, 2.0f, 0.0f);
+
+	// entity 5: cube, colorTint - red
+	entities.push_back(GameEntity(meshes[0], materials[0]));
+	entities[5].GetTransform()->SetPosition(0.0f, 4.0f, 0.0f);
+
+	// entity 6: helix, colorTint - blue
+	entities.push_back(GameEntity(meshes[2], materials[1]));
+	entities[6].GetTransform()->SetPosition(2.0f, 4.0f, 0.0f);
+
+	//entity 7:cube, uv
+	entities.push_back(GameEntity(meshes[0], materials[3]));
+	entities[7].GetTransform()->SetPosition(-2.0f, 4.0f, 0.0f);
+	// entity 8: helix, uv
+	entities.push_back(GameEntity(meshes[2], materials[3]));
+	entities[8].GetTransform()->SetPosition(-4.0f, 4.0f, 0.0f);
+
+	//entity 9:cube, normal
+	entities.push_back(GameEntity(meshes[1], materials[4]));
+	entities[9].GetTransform()->SetPosition(-2.0f, 6.0f, 0.0f);
+	// entity 10: helix, normal
+	entities.push_back(GameEntity(meshes[2], materials[4]));
+	entities[10].GetTransform()->SetPosition(-4.0f, 6.0f, 0.0f);
+
+	//entity 11:cube, custom
+	entities.push_back(GameEntity(meshes[0], materials[5]));
+	entities[11].GetTransform()->SetPosition(0.0f, 6.0f, 0.0f);
+	// entity 12: helix, custom
+	entities.push_back(GameEntity(meshes[2], materials[5]));
+	entities[12].GetTransform()->SetPosition(2.0f, 6.0f, 0.0f);
 }
 
 void BuildCustomWindow(float* color, bool* showDemoMenu, int* number, bool *showHappyMeter, DirectX::XMFLOAT4* colorTint, DirectX::XMFLOAT3* offset) {
@@ -370,19 +441,18 @@ void BuildCustomWindow(float* color, bool* showDemoMenu, int* number, bool *show
 // Helper function to toggle visibility of happiness meter on new window
 // --------------------------------------------------------
 void NewWindowWithHappyMeter(int *number, std::string *happyMeterMessage) {
-
+	// change the background color of this window to something different
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(13/255.0f, 56 / 255.0f, 46 / 255.0f, 1));
 	// create a new window
-	ImGui::Begin("Happiness 0-100??"); 
-
-	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(13, 56, 46, 1));
-	ImGui::PopStyleColor();
-
+	ImGui::Begin("Happiness 0-100??");
+	//UI stuff
 	if (*number == 100) {
 		*happyMeterMessage = "   :]    ";
 	}
 	//create a slider for happiness level on this window
 	ImGui::SliderInt((happyMeterMessage)->c_str(), number, 100, 100);
 	ImGui::End();
+	ImGui::PopStyleColor();
 }
 void BuildMeshStatsWindow(const std::vector<std::shared_ptr<Mesh>>& meshes) {
 	ImGui::Begin("Mesh Statistics");
@@ -651,13 +721,13 @@ void Game::Draw(float deltaTime, float totalTime)
 			// get the materials
 			auto mat = entity.GetMaterial();
 			// set the shaders for this entity's material
-			/*Graphics::Context->VSSetShader(mat->GetVertexShader().Get(), 0, 0);
-			Graphics::Context->PSSetShader(mat->GetPixelShader().Get(), 0, 0);*/
+			Graphics::Context->VSSetShader(mat->GetVertexShader().Get(), 0, 0);
+			Graphics::Context->PSSetShader(mat->GetPixelShader().Get(), 0, 0);
 
 			// Build constant buffer data for this specific entity
 			VertexShaderExternalData cbData = {};
 			cbData.world = entity.GetTransform()->GetWorldMatrix();
-			cbData.colorTint = mat->GetColorTint();
+			//cbData.colorTint = mat->GetColorTint();
 			cbData.view = view;
 			cbData.projection = projection;
 
@@ -666,6 +736,18 @@ void Game::Draw(float deltaTime, float totalTime)
 			Graphics::Context->Map(vsConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
 			memcpy(mapped.pData, &cbData, sizeof(VertexShaderExternalData));
 			Graphics::Context->Unmap(vsConstantBuffer.Get(), 0);
+
+			// builf pixel shader constant buffer data
+			PixelShaderExternalData psData = {};
+			psData.colorTint = entity.GetMaterial()->GetColorTint();
+
+			D3D11_MAPPED_SUBRESOURCE psMapped = {};
+			Graphics::Context->Map(psConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &psMapped);
+			memcpy(psMapped.pData, &psData, sizeof(PixelShaderExternalData));
+			Graphics::Context->Unmap(psConstantBuffer.Get(), 0);
+
+			Graphics::Context->VSSetConstantBuffers(0, 1, vsConstantBuffer.GetAddressOf());
+			Graphics::Context->PSSetConstantBuffers(0, 1, psConstantBuffer.GetAddressOf());
 
 			// Draw the entity (sets VB/IB and calls DrawIndexed)
 			entity.Draw(Graphics::Context);

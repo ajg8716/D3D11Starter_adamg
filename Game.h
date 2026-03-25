@@ -30,6 +30,7 @@ private:
 
 	// constant buffer
 	Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> psConstantBuffer;
 
 
 	// UI-editable data

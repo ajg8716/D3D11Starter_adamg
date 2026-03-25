@@ -3,6 +3,10 @@
   <ItemGroup>
     <FxCompile Include="PixelShader.hlsl" />
     <FxCompile Include="VertexShader.hlsl" />
+    <FxCompile Include="PSColorTint.hlsl" />
+    <FxCompile Include="PSUVData.hlsl" />
+    <FxCompile Include="PSNormalData.hlsl" />
+    <FxCompile Include="PSCustom.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />

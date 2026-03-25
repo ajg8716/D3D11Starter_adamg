@@ -4,7 +4,7 @@
 // - Data is sent from CPU to GPU each frame
 cbuffer ExternalData : register(b0)
 {
-    float4 colorTint; // color multiplier
+    //float4 colorTint; // color multiplier
 	//Note: padding is automatic in HLSL
     float4x4 worldMatrix; // object's world transform (position, rotation, scale)
     float4x4 viewMatrix; // camera's view matrix (camera position and orientation)
@@ -24,7 +24,7 @@ struct VertexShaderInput
 	//  |    |                |
 	//  v    v                v
 	float3 localPosition	: POSITION;     // XYZ position
-	float4 normal			: NORMAL;        // RGBA color
+	float3 normal			: NORMAL;        // RGBA color
 	float2 uv				: TEXCOORD;
 };
 
@@ -41,7 +41,7 @@ struct VertexToPixel
 	//  |    |                |
 	//  v    v                v
 	float4 screenPosition	: SV_POSITION;	// XYZW position (System Value Position)
-	float4 normal			: NORMAL;        // RGBA color
+	float3 normal			: NORMAL;        // RGBA color
 	float2 uv				: TEXCOORD;
 };
 
