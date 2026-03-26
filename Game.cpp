@@ -35,26 +35,34 @@ Game::Game()
 	colorTint = XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f); // slight red tint
 	//offset = XMFLOAT3(0.1f, 0.0f, 0.0f);          // shift right
 
-	// create the constant buffer
-	D3D11_BUFFER_DESC cbDesc = {};
-	cbDesc.ByteWidth = sizeof(VertexShaderExternalData);
-	cbDesc.Usage = D3D11_USAGE_DYNAMIC;
-	cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	cbDesc.MiscFlags = 0;
-	cbDesc.StructureByteStride = 0;
-	Graphics::Device->CreateBuffer(&cbDesc, nullptr, vsConstantBuffer.GetAddressOf());
+	//// create the constant buffer
+	//D3D11_BUFFER_DESC cbDesc = {};
+	//cbDesc.ByteWidth = sizeof(VertexShaderExternalData);
+	//cbDesc.Usage = D3D11_USAGE_DYNAMIC;
+	//cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	//cbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	//cbDesc.MiscFlags = 0;
+	//cbDesc.StructureByteStride = 0;
+	//Graphics::Device->CreateBuffer(&cbDesc, nullptr, vsConstantBuffer.GetAddressOf());
 
-	//bind constant buffer to vertex shader (slot 0)
-	Graphics::Context->VSSetConstantBuffers(0, 1, vsConstantBuffer.GetAddressOf());
+	////bind constant buffer to vertex shader (slot 0)
+	//Graphics::Context->VSSetConstantBuffers(0, 1, vsConstantBuffer.GetAddressOf());
 
-	//create pixel shader constant buffer (for color tint)
-	D3D11_BUFFER_DESC psDesc = {};
-	psDesc.ByteWidth = sizeof(PixelShaderExternalData);
-	psDesc.Usage = D3D11_USAGE_DYNAMIC;
-	psDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	psDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	Graphics::Device->CreateBuffer(&psDesc, nullptr, psConstantBuffer.GetAddressOf());
+	////create pixel shader constant buffer (for color tint)
+	//D3D11_BUFFER_DESC psDesc = {};
+	//psDesc.ByteWidth = sizeof(PixelShaderExternalData);
+	//psDesc.Usage = D3D11_USAGE_DYNAMIC;
+	//psDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	//psDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	//Graphics::Device->CreateBuffer(&psDesc, nullptr, psConstantBuffer.GetAddressOf());
+
+	// Create large ring buffer constant buffer
+	D3D11_BUFFER_DESC ringDesc = {};
+	ringDesc.ByteWidth = cbRingBufferSize;
+	ringDesc.Usage = D3D11_USAGE_DYNAMIC;
+	ringDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	ringDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	Graphics::Device->CreateBuffer(&ringDesc, nullptr, cbRingBuffer.GetAddressOf());
 
 	// Set initial graphics API state
 	//  - These settings persist until we change them
@@ -227,24 +235,61 @@ void Game::LoadShaders()
 			};
 
 		// --- Load each pixel shader ---
+		auto psTextured = LoadPS(L"PixelShader.cso");
 		auto psColorTint = LoadPS(L"PSColorTint.cso");
 		auto psUV = LoadPS(L"PSUVData.cso");
 		auto psNormal = LoadPS(L"PSNormalData.cso");
 		auto psCustom = LoadPS(L"PSCustom.cso");
 
+		// Load textures
+		HRESULT hr1 = DirectX::CreateWICTextureFromFile(
+			Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/blue_metal_plate_4k.blend/textures/blue_metal_plate_diff_4k.jpg").c_str(),
+			nullptr, srvTexture1.GetAddressOf());
+
+		HRESULT hr2 = DirectX::CreateWICTextureFromFile(
+			Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/damaged_plaster_4k.blend/textures/damaged_plaster_diff_4k.jpg").c_str(),
+			nullptr, srvTexture2.GetAddressOf());
+
+		/*assert(SUCCEEDED(hr1) && "Texture 1 failed to load");
+		assert(SUCCEEDED(hr2) && "Texture 2 failed to load");*/
+
+
+		// Create sampler state
+		D3D11_SAMPLER_DESC sampDesc = {};
+		sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+		sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+		sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+		sampDesc.Filter = D3D11_FILTER_ANISOTROPIC;
+		sampDesc.MaxAnisotropy = 16;
+		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+		Graphics::Device->CreateSamplerState(&sampDesc, samplerState.GetAddressOf());
+
 		// --- Materials ---
-		// materials[0]: color tint, red
-		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 0, 0, 1), vs, psColorTint));
-		// materials[1]: color tint, green
-		materials.push_back(std::make_shared<Material>(XMFLOAT4(0, 1, 0, 1), vs, psColorTint));
-		// materials[2]: color tint, blue
-		materials.push_back(std::make_shared<Material>(XMFLOAT4(0, 0, 1, 1), vs, psColorTint));
+		// materials[0]: color tint, textured
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 0, 0, 1), vs, psTextured));
+		// materials[1]: color tint, textured
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(0, 1, 0, 1), vs, psTextured));
+		// materials[2]: color tint, textured
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(0, 0, 1, 1), vs, psTextured));
 		// materials[3]: UV debug
 		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psUV));
 		// materials[4]: Normal debug
 		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psNormal));
 		// materials[5]: Custom
 		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psCustom));
+
+		// Assign texture1 + sampler to materials 0, 1, 2
+		for (int i = 0; i <= 2; i++) {
+			materials[i]->AddTextureSRV(0, srvTexture1);
+			materials[i]->AddSampler(0, samplerState);
+		}
+		// Assign texture2 + sampler to materials 3, 4, 5
+		for (int i = 3; i <= 5; i++) {
+			materials[i]->AddTextureSRV(0, srvTexture2);
+			materials[i]->AddSampler(0, samplerState);
+		}
 	}
 }
 
@@ -408,6 +453,32 @@ void Game::CreateGeometry()
 	// entity 12: helix, custom
 	entities.push_back(GameEntity(meshes[2], materials[5]));
 	entities[12].GetTransform()->SetPosition(2.0f, 6.0f, 0.0f);
+}
+
+void Game::FillAndBindNextConstantBuffer(void* data, size_t dataSize,
+	bool isVertexShader, UINT slot) 
+{
+	size_t alignedSize = (dataSize + 255) & ~255;
+
+	if (cbRingBufferOffset + alignedSize > cbRingBufferSize)
+		cbRingBufferOffset = 0;
+
+	D3D11_MAPPED_SUBRESOURCE mapped = {};
+	Graphics::Context->Map(cbRingBuffer.Get(), 0, D3D11_MAP_WRITE_NO_OVERWRITE, 0, &mapped);
+	memcpy((char*)mapped.pData + cbRingBufferOffset, data, dataSize);
+	Graphics::Context->Unmap(cbRingBuffer.Get(), 0);
+
+	UINT firstConstant = (UINT)(cbRingBufferOffset / 16);
+	UINT numConstants = (UINT)(alignedSize / 16);
+
+	if (isVertexShader)
+		Graphics::Context->VSSetConstantBuffers1(slot, 1, cbRingBuffer.GetAddressOf(),
+			&firstConstant, &numConstants);
+	else
+		Graphics::Context->PSSetConstantBuffers1(slot, 1, cbRingBuffer.GetAddressOf(),
+			&firstConstant, &numConstants);
+
+	cbRingBufferOffset += alignedSize;
 }
 
 void BuildCustomWindow(float* color, bool* showDemoMenu, int* number, bool *showHappyMeter, DirectX::XMFLOAT4* colorTint, DirectX::XMFLOAT3* offset) {
@@ -732,22 +803,28 @@ void Game::Draw(float deltaTime, float totalTime)
 			cbData.projection = projection;
 
 			// Map, copy, unmap
-			D3D11_MAPPED_SUBRESOURCE mapped = {};
-			Graphics::Context->Map(vsConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
-			memcpy(mapped.pData, &cbData, sizeof(VertexShaderExternalData));
-			Graphics::Context->Unmap(vsConstantBuffer.Get(), 0);
+			//D3D11_MAPPED_SUBRESOURCE mapped = {};
+			//Graphics::Context->Map(vsConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+			//memcpy(mapped.pData, &cbData, sizeof(VertexShaderExternalData));
+			//Graphics::Context->Unmap(vsConstantBuffer.Get(), 0);
 
 			// builf pixel shader constant buffer data
 			PixelShaderExternalData psData = {};
 			psData.colorTint = entity.GetMaterial()->GetColorTint();
+			psData.uvScale = entity.GetMaterial()->GetUVScale();
+			psData.uvOffset = entity.GetMaterial()->GetUVOffset();
+			entity.GetMaterial()->BindTexturesAndSamplers(Graphics::Context);
 
-			D3D11_MAPPED_SUBRESOURCE psMapped = {};
+			/*D3D11_MAPPED_SUBRESOURCE psMapped = {};
 			Graphics::Context->Map(psConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &psMapped);
 			memcpy(psMapped.pData, &psData, sizeof(PixelShaderExternalData));
-			Graphics::Context->Unmap(psConstantBuffer.Get(), 0);
+			Graphics::Context->Unmap(psConstantBuffer.Get(), 0);*/
 
-			Graphics::Context->VSSetConstantBuffers(0, 1, vsConstantBuffer.GetAddressOf());
-			Graphics::Context->PSSetConstantBuffers(0, 1, psConstantBuffer.GetAddressOf());
+			/*Graphics::Context->VSSetConstantBuffers(0, 1, vsConstantBuffer.GetAddressOf());
+			Graphics::Context->PSSetConstantBuffers(0, 1, psConstantBuffer.GetAddressOf());*/
+
+			FillAndBindNextConstantBuffer(&cbData, sizeof(VertexShaderExternalData), true, 0);
+			FillAndBindNextConstantBuffer(&psData, sizeof(PixelShaderExternalData), false, 0);
 
 			// Draw the entity (sets VB/IB and calls DrawIndexed)
 			entity.Draw(Graphics::Context);

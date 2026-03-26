@@ -50,4 +50,7 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Material.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
 </Project>

@@ -13,4 +13,6 @@ struct VertexShaderExternalData
 struct PixelShaderExternalData
 {
 	DirectX::XMFLOAT4 colorTint; // 16 bytes - color multiplier
+	DirectX::XMFLOAT2 uvScale;
+	DirectX::XMFLOAT2 uvOffset;
 };

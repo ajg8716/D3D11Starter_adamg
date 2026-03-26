@@ -10,6 +10,7 @@
 #include "GameEntity.h"
 #include "Camera.h"
 #include "Material.h"
+#include "WICTextureLoader.h"
 
 
 class Game
@@ -29,8 +30,22 @@ public:
 private:
 
 	// constant buffer
-	Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
-	Microsoft::WRL::ComPtr<ID3D11Buffer> psConstantBuffer;
+	/*Microsoft::WRL::ComPtr<ID3D11Buffer> vsConstantBuffer;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> psConstantBuffer;*/
+
+	// Textures & sampler
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvTexture1;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvTexture2;
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerState;
+
+	// Ring buffer constant buffer
+	Microsoft::WRL::ComPtr<ID3D11Buffer> cbRingBuffer;
+	size_t cbRingBufferOffset = 0;
+	static const size_t cbRingBufferSize = 256000;
+
+	// Helper method
+	void FillAndBindNextConstantBuffer(void* data, size_t dataSize,
+		bool isVertexShader, UINT slot);
 
 
 	// UI-editable data
