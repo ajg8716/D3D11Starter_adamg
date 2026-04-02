@@ -7,6 +7,7 @@
     <FxCompile Include="PSUVData.hlsl" />
     <FxCompile Include="PSNormalData.hlsl" />
     <FxCompile Include="PSCustom.hlsl" />
+    <FxCompile Include="CustomTexture.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
@@ -49,8 +50,17 @@
     <ClInclude Include="GameEntity.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Material.h" />
+    <ClInclude Include="Lights.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="ShaderIncludes.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{387d7734-9905-4af3-a669-bd339988a369}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

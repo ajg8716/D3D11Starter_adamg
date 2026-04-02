@@ -34,6 +34,55 @@ Game::Game()
 	// Initialize constant buffer data
 	colorTint = XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f); // slight red tint
 	//offset = XMFLOAT3(0.1f, 0.0f, 0.0f);          // shift right
+	ambientColor = XMFLOAT3(0.1f, 0.1f, 0.25f);
+	//initialize the directional light
+	//directionalLight1 = {};
+	//directionalLight1.Type = LIGHT_TYPE_DIRECTIONAL;
+	//directionalLight1.Direction = XMFLOAT3(1.0f, -1.0f, 0.0f); // points right and down
+	//directionalLight1.Color = XMFLOAT3(1.0f, 1.0f, 1.0f);
+	//directionalLight1.Intensity = 1.0f;
+
+	//initialize the lights
+	Light l1 = {};
+	l1.Type = LIGHT_TYPE_DIRECTIONAL;
+	l1.Direction = XMFLOAT3(1.0f, -1.0f, 0.0f);
+	l1.Color = XMFLOAT3(1.0f, 0.0f, 0.0f); // red
+	l1.Intensity = 1.0f;
+	lights.push_back(l1);
+
+	Light l2 = {};
+	l2.Type = LIGHT_TYPE_DIRECTIONAL;
+	l2.Direction = XMFLOAT3(-1.0f, -1.0f, 0.0f);
+	l2.Color = XMFLOAT3(0.0f, 1.0f, 0.0f); // green
+	l2.Intensity = 1.0f;
+	lights.push_back(l2);
+
+	Light l3 = {};
+	l3.Type = LIGHT_TYPE_SPOT;
+	l3.Position = XMFLOAT3(0.0f, 5.0f, 0.0f); // above the scene
+	l3.Direction = XMFLOAT3(0.0f, -1.0f, 0.0f); // pointing straight down
+	l3.Range = 15.0f;
+	l3.Color = XMFLOAT3(0.0f, 0.0f, 1.0f); // blue
+	l3.Intensity = 3.0f;
+	l3.SpotInnerAngle = 0.2f; // ~11 degrees
+	l3.SpotOuterAngle = 0.5f; // ~28 degrees
+	lights.push_back(l3);
+
+	Light l4 = {};
+	l4.Type = LIGHT_TYPE_POINT;
+	l4.Position = XMFLOAT3(0.0f, 2.0f, 0.0f); // hovering above center
+	l4.Range = 10.0f;
+	l4.Color = XMFLOAT3(1.0f, 1.0f, 0.0f); // yellow
+	l4.Intensity = 2.0f;
+	lights.push_back(l4);
+
+	Light l5 = {};
+	l5.Type = LIGHT_TYPE_POINT;
+	l5.Position = XMFLOAT3(-3.0f, 0.0f, 0.0f); // to the left
+	l5.Range = 8.0f;
+	l5.Color = XMFLOAT3(1.0f, 0.5f, 1.0f); // orange
+	l5.Intensity = 2.0f;
+	lights.push_back(l5);
 
 	//// create the constant buffer
 	//D3D11_BUFFER_DESC cbDesc = {};
@@ -236,6 +285,7 @@ void Game::LoadShaders()
 
 		// --- Load each pixel shader ---
 		auto psTextured = LoadPS(L"PixelShader.cso");
+		auto psMultiTexture = LoadPS(L"CustomTexture.cso");
 		auto psColorTint = LoadPS(L"PSColorTint.cso");
 		auto psUV = LoadPS(L"PSUVData.cso");
 		auto psNormal = LoadPS(L"PSNormalData.cso");
@@ -252,8 +302,8 @@ void Game::LoadShaders()
 			FixPath(L"../../Assets/Textures/damaged_plaster_4k.blend/textures/damaged_plaster_diff_4k.jpg").c_str(),
 			nullptr, srvTexture2.GetAddressOf());
 
-		/*assert(SUCCEEDED(hr1) && "Texture 1 failed to load");
-		assert(SUCCEEDED(hr2) && "Texture 2 failed to load");*/
+		if (FAILED(hr1)) OutputDebugStringW(L"Texture 1 FAILED to load\n");
+		if (FAILED(hr2)) OutputDebugStringW(L"Texture 2 FAILED to load\n");
 
 
 		// Create sampler state
@@ -268,28 +318,40 @@ void Game::LoadShaders()
 
 		// --- Materials ---
 		// materials[0]: color tint, textured
-		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 0, 0, 1), vs, psTextured));
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psTextured));
 		// materials[1]: color tint, textured
-		materials.push_back(std::make_shared<Material>(XMFLOAT4(0, 1, 0, 1), vs, psTextured));
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 0, 0, 1), vs, psTextured));
 		// materials[2]: color tint, textured
-		materials.push_back(std::make_shared<Material>(XMFLOAT4(0, 0, 1, 1), vs, psTextured));
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psTextured));
 		// materials[3]: UV debug
 		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psUV));
 		// materials[4]: Normal debug
 		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psNormal));
 		// materials[5]: Custom
 		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psCustom));
+		// materials[6]: Custom Texture
+		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psMultiTexture));
 
-		// Assign texture1 + sampler to materials 0, 1, 2
-		for (int i = 0; i <= 2; i++) {
-			materials[i]->AddTextureSRV(0, srvTexture1);
-			materials[i]->AddSampler(0, samplerState);
-		}
-		// Assign texture2 + sampler to materials 3, 4, 5
+
+		// Assign texture1 + sampler to materials 0 and 1
+		materials[0]->AddTextureSRV(0, srvTexture1);
+		materials[0]->AddSampler(0, samplerState);
+		materials[1]->AddTextureSRV(0, srvTexture1);
+		materials[1]->AddSampler(0, samplerState);
+
+		// Assign texture2 to material 2 (also uses psTextured)
+		materials[2]->AddTextureSRV(0, srvTexture2);
+		materials[2]->AddSampler(0, samplerState);
+
+		// Materials 3-5 use debug/custom shaders, texture assignment optional
 		for (int i = 3; i <= 5; i++) {
 			materials[i]->AddTextureSRV(0, srvTexture2);
 			materials[i]->AddSampler(0, samplerState);
 		}
+		// assign both textures to the 6th material, multi-texture and sampler state
+		materials[6]->AddTextureSRV(0, srvTexture1);
+		materials[6]->AddTextureSRV(1, srvTexture2);
+		materials[6]->AddSampler(0, samplerState);
 	}
 }
 
@@ -414,45 +476,49 @@ void Game::CreateGeometry()
 	entities[1].GetTransform()->SetPosition(0.0f, 0.0f, 0.0f);
 
 	// entity 2: helix, right, will scale up and down
-	entities.push_back(GameEntity(meshes[2], materials[2]));
-	entities[2].GetTransform()->SetPosition(4.0f, 0.0f, 0.0f);
+	//entities.push_back(GameEntity(meshes[2], materials[2]));
+	//entities[2].GetTransform()->SetPosition(4.0f, 0.0f, 0.0f);
 
 	//entity 3: cube, center, will move left and right
-	entities.push_back(GameEntity(meshes[0], materials[1]));
-	entities[3].GetTransform()->SetPosition(-4.5f, 4.0f, 0.0f);
+	//entities.push_back(GameEntity(meshes[0], materials[1]));
+	//entities[2].GetTransform()->SetPosition(-4.5f, 4.0f, 0.0f);
 
 	// entity 4: sphere (shared mesh), will rotate opposite direction
 	entities.push_back(GameEntity(meshes[1], materials[2]));
-	entities[4].GetTransform()->SetPosition(2.0f, 2.0f, 0.0f);
+	entities[2].GetTransform()->SetPosition(2.0f, 2.0f, 0.0f);
 
 	// entity 5: cube, colorTint - red
 	entities.push_back(GameEntity(meshes[0], materials[0]));
-	entities[5].GetTransform()->SetPosition(0.0f, 4.0f, 0.0f);
+	entities[3].GetTransform()->SetPosition(0.0f, 4.0f, 0.0f);
 
 	// entity 6: helix, colorTint - blue
 	entities.push_back(GameEntity(meshes[2], materials[1]));
-	entities[6].GetTransform()->SetPosition(2.0f, 4.0f, 0.0f);
+	entities[4].GetTransform()->SetPosition(2.0f, 4.0f, 0.0f);
 
 	//entity 7:cube, uv
 	entities.push_back(GameEntity(meshes[0], materials[3]));
-	entities[7].GetTransform()->SetPosition(-2.0f, 4.0f, 0.0f);
+	entities[5].GetTransform()->SetPosition(-2.0f, 4.0f, 0.0f);
 	// entity 8: helix, uv
 	entities.push_back(GameEntity(meshes[2], materials[3]));
-	entities[8].GetTransform()->SetPosition(-4.0f, 4.0f, 0.0f);
+	entities[6].GetTransform()->SetPosition(-4.0f, 4.0f, 0.0f);
 
 	//entity 9:cube, normal
-	entities.push_back(GameEntity(meshes[1], materials[4]));
-	entities[9].GetTransform()->SetPosition(-2.0f, 6.0f, 0.0f);
+	//entities.push_back(GameEntity(meshes[1], materials[4]));
+	//entities[7].GetTransform()->SetPosition(-2.0f, 6.0f, 0.0f);
 	// entity 10: helix, normal
-	entities.push_back(GameEntity(meshes[2], materials[4]));
-	entities[10].GetTransform()->SetPosition(-4.0f, 6.0f, 0.0f);
+	//entities.push_back(GameEntity(meshes[2], materials[4]));
+	//entities[8].GetTransform()->SetPosition(-4.0f, 6.0f, 0.0f);
 
 	//entity 11:cube, custom
 	entities.push_back(GameEntity(meshes[0], materials[5]));
-	entities[11].GetTransform()->SetPosition(0.0f, 6.0f, 0.0f);
+	entities[7].GetTransform()->SetPosition(0.0f, 6.0f, 0.0f);
 	// entity 12: helix, custom
 	entities.push_back(GameEntity(meshes[2], materials[5]));
-	entities[12].GetTransform()->SetPosition(2.0f, 6.0f, 0.0f);
+	entities[8].GetTransform()->SetPosition(2.0f, 6.0f, 0.0f);
+
+	// entity 13: sphere, custom texture
+	entities.push_back(GameEntity(meshes[1], materials[6])); 
+	entities[9].GetTransform()->SetPosition(-6.0f, 0.0f, 0.0f);
 }
 
 void Game::FillAndBindNextConstantBuffer(void* data, size_t dataSize,
@@ -660,10 +726,71 @@ void Game::ImGuiFresh(float deltaTime) {
 				t->SetScale(scl);
 
 			ImGui::Text("Mesh indices: %d", entities[i].GetMesh()->GetIndexCount());
-		}
 
+			// Material Details
+			ImGui::Separator();
+			ImGui::Text("Material");
+
+			auto mat = entities[i].GetMaterial();
+
+			// Color Tint
+			XMFLOAT4 tint = mat->GetColorTint();
+			if (ImGui::ColorEdit4("ColorTint", &tint.x))
+				mat->SetColorTint(tint);
+
+			//UV scale 
+			XMFLOAT2 uvScale = mat->GetUVScale();
+			if (ImGui::DragFloat2("UV Scale", &uvScale.x, 0.1f, 0.0f, 10.0f))
+				mat->SetUVScale(uvScale);
+
+			//UV offset
+			XMFLOAT2 uvOffset = mat->GetUVOffset();
+			if (ImGui::DragFloat2("UV Offset", &uvOffset.x, 0.01f, -5.0f, 5.0f))
+				mat->SetUVOffset(uvOffset);
+		}
 		ImGui::PopID();
 	}
+	ImGui::End();
+
+	//Lights Window
+	ImGui::Begin("Lights");
+
+	//Ambient color control
+	ImGui::ColorEdit3("Ambient Color", &ambientColor.x);
+	ImGui::Separator();
+
+	// per-light controls
+	for (int i = 0; i < (int)lights.size(); i++) {
+		ImGui::PushID(i);
+
+		char label[32];
+		sprintf_s(label, "Light %d", i);
+
+		if (ImGui::CollapsingHeader(label)) {
+			//color
+			ImGui::ColorEdit3("Color", &lights[i].Color.x);
+			//intensity
+			ImGui::DragFloat("Intensity", &lights[i].Intensity, 0.01f, 0.0f, 10.0f);
+			//direction (for directional and spotlights)
+			if (lights[i].Type == LIGHT_TYPE_DIRECTIONAL || lights[i].Type == LIGHT_TYPE_SPOT) {
+				if (ImGui::DragFloat3("Direction", &lights[i].Direction.x, 0.01f, -1.0f, 1.0f)) {
+					//normalize after use changes it
+					XMVECTOR dir = XMLoadFloat3(&lights[i].Direction);
+					dir = XMVector3Normalize(dir);
+					XMStoreFloat3(&lights[i].Direction, dir);
+				}
+
+			}
+
+			// position (for point and spotlights)
+			if (lights[i].Type == LIGHT_TYPE_POINT || lights[i].Type == LIGHT_TYPE_SPOT) {
+				ImGui::DragFloat3("Position", &lights[i].Position.x, 0.1f);
+				ImGui::DragFloat3("Range", &lights[i].Range, 0.1f, 0.0f, 100.0f);
+			}
+		}
+		ImGui::PopID();
+	}
+
 	ImGui::End();
 
 	// mesh stats window
@@ -784,7 +911,6 @@ void Game::Draw(float deltaTime, float totalTime)
 		XMFLOAT4X4 view = cameras[activeCameraIndex]->GetViewMatrix();
 		XMFLOAT4X4 projection = cameras[activeCameraIndex]->GetProjectionMatrix();
 
-
 		//A5
 		// Draw each entity with its own matrix
 		for (auto& entity : entities)
@@ -813,7 +939,13 @@ void Game::Draw(float deltaTime, float totalTime)
 			psData.colorTint = entity.GetMaterial()->GetColorTint();
 			psData.uvScale = entity.GetMaterial()->GetUVScale();
 			psData.uvOffset = entity.GetMaterial()->GetUVOffset();
+			psData.ambientColor = ambientColor;
+			psData.cameraPosition = cameras[activeCameraIndex]->GetTransform().GetPosition();
 			entity.GetMaterial()->BindTexturesAndSamplers(Graphics::Context);
+
+			// SET LIGHTING STUFF
+			//memcpy(&psData.dirLight1, &directionalLight1, sizeof(Light)); 
+			memcpy(&psData.lights, &lights[0], sizeof(Light) * (int)lights.size());
 
 			/*D3D11_MAPPED_SUBRESOURCE psMapped = {};
 			Graphics::Context->Map(psConstantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &psMapped);
@@ -822,6 +954,8 @@ void Game::Draw(float deltaTime, float totalTime)
 
 			/*Graphics::Context->VSSetConstantBuffers(0, 1, vsConstantBuffer.GetAddressOf());
 			Graphics::Context->PSSetConstantBuffers(0, 1, psConstantBuffer.GetAddressOf());*/
+
+			cbData.worldInvTranspose = entity.GetTransform()->GetWorldInverseTransposeMatrix();
 
 			FillAndBindNextConstantBuffer(&cbData, sizeof(VertexShaderExternalData), true, 0);
 			FillAndBindNextConstantBuffer(&psData, sizeof(PixelShaderExternalData), false, 0);

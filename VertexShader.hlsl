@@ -1,3 +1,4 @@
+#include "ShaderIncludes.hlsli"
 
 //Constant buffer for external data from c++
 // - Must match the VertexShaderExternalData struct in C++
@@ -7,6 +8,7 @@ cbuffer ExternalData : register(b0)
     //float4 colorTint; // color multiplier
 	//Note: padding is automatic in HLSL
     float4x4 worldMatrix; // object's world transform (position, rotation, scale)
+    float4x4 worldInvTranspose;
     float4x4 viewMatrix; // camera's view matrix (camera position and orientation)
     float4x4 projectionMatrix; // camera's projection matrix (field of view, aspect ratio, near and far planes)
 }
@@ -33,17 +35,17 @@ struct VertexShaderInput
 // - At a minimum, we need a piece of data defined tagged as SV_POSITION
 // - The name of the struct itself is unimportant, but should be descriptive
 // - Each variable must have a semantic, which defines its usage
-struct VertexToPixel
-{
+//struct VertexToPixel
+//{
 	// Data type
 	//  |
 	//  |   Name          Semantic
 	//  |    |                |
 	//  v    v                v
-	float4 screenPosition	: SV_POSITION;	// XYZW position (System Value Position)
-	float3 normal			: NORMAL;        // RGBA color
-	float2 uv				: TEXCOORD;
-};
+	//float4 screenPosition	: SV_POSITION;	// XYZW position (System Value Position)
+	//float3 normal			: NORMAL;        // RGBA color
+	//float2 uv				: TEXCOORD;
+//};
 
 // --------------------------------------------------------
 // The entry point (main method) for our vertex shader
@@ -54,6 +56,7 @@ struct VertexToPixel
 // --------------------------------------------------------
 VertexToPixel main( VertexShaderInput input )
 {
+	
 	// Set up output struct
 	VertexToPixel output;
 
@@ -78,7 +81,8 @@ VertexToPixel main( VertexShaderInput input )
 	// Pass the color through 
 	// - The values will be interpolated per-pixel by the rasterizer
 	// - We don't need to alter it here, but we do need to send it to the pixel shader
-	output.normal = input.normal;
+    output.normal = mul((float3x3) worldInvTranspose, input.normal);
+    output.worldPosition = mul(worldMatrix, float4(input.localPosition, 1)).xyz;
     output.uv = input.uv;
 
 	// Whatever we return will make its way through the pipeline to the

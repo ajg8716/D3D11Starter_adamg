@@ -1,3 +1,5 @@
+#include "ShaderIncludes.hlsli"
+
 cbuffer ExternalData : register(b0)
 {
     float4 colorTint;
@@ -6,12 +8,12 @@ cbuffer ExternalData : register(b0)
     float4x4 projectionMatrix;
 }
 
-struct VertexToPixel
-{
-    float4 screenPosition : SV_POSITION;
-    float3 normal : NORMAL;
-    float2 uv : TEXCOORD;
-};
+//struct VertexToPixel
+//{
+    //float4 screenPosition : SV_POSITION;
+    //float3 normal : NORMAL;
+    //float2 uv : TEXCOORD;
+//};
 
 float4 main(VertexToPixel input) : SV_TARGET
 {

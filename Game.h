@@ -11,6 +11,7 @@
 #include "Camera.h"
 #include "Material.h"
 #include "WICTextureLoader.h"
+#include "Lights.h"
 
 
 class Game
@@ -21,6 +22,9 @@ public:
 	~Game();
 	Game(const Game&) = delete; // Remove copy constructor
 	Game& operator=(const Game&) = delete; // Remove copy-assignment operator
+
+	DirectX::XMFLOAT3 ambientColor;
+	std::vector<Light> lights;
 
 	// Primary functions
 	void Update(float deltaTime, float totalTime);
