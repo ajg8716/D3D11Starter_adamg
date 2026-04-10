@@ -8,6 +8,8 @@
     <FxCompile Include="PSNormalData.hlsl" />
     <FxCompile Include="PSCustom.hlsl" />
     <FxCompile Include="CustomTexture.hlsl" />
+    <FxCompile Include="SkyVS.hlsl" />
+    <FxCompile Include="SkyPS.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
@@ -28,6 +30,7 @@
     <ClCompile Include="GameEntity.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Material.cpp" />
+    <ClCompile Include="Sky.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BufferStructs.h" />
@@ -51,6 +54,7 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Material.h" />
     <ClInclude Include="Lights.h" />
+    <ClInclude Include="Sky.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

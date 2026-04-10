@@ -12,6 +12,7 @@
 #include "Material.h"
 #include "WICTextureLoader.h"
 #include "Lights.h"
+#include "Sky.h"
 
 
 class Game
@@ -25,6 +26,7 @@ public:
 
 	DirectX::XMFLOAT3 ambientColor;
 	std::vector<Light> lights;
+	std::shared_ptr<Sky> sky;
 
 	// Primary functions
 	void Update(float deltaTime, float totalTime);

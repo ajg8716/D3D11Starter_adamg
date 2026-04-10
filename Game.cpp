@@ -316,6 +316,20 @@ void Game::LoadShaders()
 		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
 		Graphics::Device->CreateSamplerState(&sampDesc, samplerState.GetAddressOf());
 
+		// Create the sky
+		sky = std::make_shared<Sky>(
+			meshes[0],
+			samplerState,
+			L"../../Assets/Skies/Skies/Planet/right.png",
+			L"../../Assets/Skies/Skies/Planet/left.png",
+			L"../../Assets/Skies/Skies/Planet/up.png",
+			L"../../Assets/Skies/Skies/Planet/down.png",
+			L"../../Assets/Skies/Skies/Planet/front.png",
+			L"../../Assets/Skies/Skies/Planet/back.png",
+			L"SkyVS.cso",
+			L"SkyPS.cso"
+		);
+
 		// --- Materials ---
 		// materials[0]: color tint, textured
 		materials.push_back(std::make_shared<Material>(XMFLOAT4(1, 1, 1, 1), vs, psTextured));
@@ -963,6 +977,9 @@ void Game::Draw(float deltaTime, float totalTime)
 			// Draw the entity (sets VB/IB and calls DrawIndexed)
 			entity.Draw(Graphics::Context);
 		}
+
+		//draw the sky
+		sky->Draw(cameras[activeCameraIndex]);
 
 		ImGui::Render(); // Turns this frame¡¦s UI into renderable triangles
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData()); // Draws it to the screen
