@@ -61,6 +61,7 @@
     <None Include="ShaderIncludes.hlsli">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="Header.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">

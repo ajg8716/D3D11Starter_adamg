@@ -11,6 +11,7 @@ struct VertexToPixel
     float3 normal : NORMAL;
     float2 uv : TEXCOORD;
     float3 worldPosition : POSITION;
+    float3 tangent : TANGENT;
 };
 
 

@@ -261,6 +261,7 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Header.hlsli" />
     <None Include="packages.config" />
     <None Include="ShaderIncludes.hlsli" />
   </ItemGroup>

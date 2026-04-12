@@ -234,7 +234,7 @@ void Game::LoadShaders()
 	//  - Doing this NOW because it requires a vertex shader's byte code to verify against!
 	//  - Luckily, we already have that loaded (the vertex shader blob above)
 	{
-		D3D11_INPUT_ELEMENT_DESC inputElements[3] = {};
+		D3D11_INPUT_ELEMENT_DESC inputElements[4] = {};
 
 		// Set up the first element - a position, which is 3 float values
 		inputElements[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;				// Most formats are described as color channels; really it just means "Three 32-bit floats"
@@ -250,10 +250,14 @@ void Game::LoadShaders()
 		inputElements[2].Format = DXGI_FORMAT_R32G32_FLOAT;
 		inputElements[2].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
 
+		inputElements[3].SemanticName = "TANGENT";
+		inputElements[3].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+		inputElements[3].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+
 		// Create the input layout, verifying our description against actual shader code
 		Graphics::Device->CreateInputLayout(
 			inputElements,							// An array of descriptions
-			3,										// How many elements in that array?
+			4,										// How many elements in that array?
 			vertexShaderBlob->GetBufferPointer(),	// Pointer to the code of a shader that uses this layout
 			vertexShaderBlob->GetBufferSize(),		// Size of the shader code that uses this layout
 			inputLayout.GetAddressOf());			// Address of the resulting ID3D11InputLayout pointer
@@ -294,17 +298,35 @@ void Game::LoadShaders()
 		// Load textures
 		HRESULT hr1 = DirectX::CreateWICTextureFromFile(
 			Graphics::Device.Get(), Graphics::Context.Get(),
-			FixPath(L"../../Assets/Textures/blue_metal_plate_4k.blend/textures/blue_metal_plate_diff_4k.jpg").c_str(),
+			FixPath(L"../../Assets/Textures/Textures with Normal Maps/Textures with Normal Maps/cobblestone.png").c_str(),
 			nullptr, srvTexture1.GetAddressOf());
 
 		HRESULT hr2 = DirectX::CreateWICTextureFromFile(
 			Graphics::Device.Get(), Graphics::Context.Get(),
-			FixPath(L"../../Assets/Textures/damaged_plaster_4k.blend/textures/damaged_plaster_diff_4k.jpg").c_str(),
+			FixPath(L"../../Assets/Textures/Textures with Normal Maps/Textures with Normal Maps/cushion.png").c_str(),
 			nullptr, srvTexture2.GetAddressOf());
+
+		HRESULT hr3 = DirectX::CreateWICTextureFromFile(
+				Graphics::Device.Get(), Graphics::Context.Get(),
+				FixPath(L"../../Assets/Textures/Textures with Normal Maps/Textures with Normal Maps/cobblestone_normals.png").c_str(),
+			nullptr, srvBlueMetalNormalMap.GetAddressOf());
+
+		HRESULT hr4 = DirectX::CreateWICTextureFromFile(
+			Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/Textures with Normal Maps/Textures with Normal Maps/cushion_normals.png").c_str(),
+			nullptr, srvDamagedPlasterNormalMap.GetAddressOf());
+
+		HRESULT hr5 = DirectX::CreateWICTextureFromFile(
+			Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/Textures with Normal Maps/Textures with Normal Maps/flat_normals.png").c_str(),
+			nullptr, srvFlatNormalMap.GetAddressOf());
+
 
 		if (FAILED(hr1)) OutputDebugStringW(L"Texture 1 FAILED to load\n");
 		if (FAILED(hr2)) OutputDebugStringW(L"Texture 2 FAILED to load\n");
-
+		if (FAILED(hr3)) OutputDebugStringW(L"Normal map FAILED to load\n");
+		if (FAILED(hr4)) OutputDebugStringW(L"Damaged plaster normal map FAILED to load\n");
+		if (FAILED(hr5)) OutputDebugStringW(L"Flat normal map FAILED to load\n");
 
 		// Create sampler state
 		D3D11_SAMPLER_DESC sampDesc = {};
@@ -315,20 +337,6 @@ void Game::LoadShaders()
 		sampDesc.MaxAnisotropy = 16;
 		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
 		Graphics::Device->CreateSamplerState(&sampDesc, samplerState.GetAddressOf());
-
-		// Create the sky
-		sky = std::make_shared<Sky>(
-			meshes[0],
-			samplerState,
-			L"../../Assets/Skies/Skies/Planet/right.png",
-			L"../../Assets/Skies/Skies/Planet/left.png",
-			L"../../Assets/Skies/Skies/Planet/up.png",
-			L"../../Assets/Skies/Skies/Planet/down.png",
-			L"../../Assets/Skies/Skies/Planet/front.png",
-			L"../../Assets/Skies/Skies/Planet/back.png",
-			L"SkyVS.cso",
-			L"SkyPS.cso"
-		);
 
 		// --- Materials ---
 		// materials[0]: color tint, textured
@@ -349,17 +357,22 @@ void Game::LoadShaders()
 
 		// Assign texture1 + sampler to materials 0 and 1
 		materials[0]->AddTextureSRV(0, srvTexture1);
+		materials[0]->AddTextureSRV(1, srvBlueMetalNormalMap);
 		materials[0]->AddSampler(0, samplerState);
+
 		materials[1]->AddTextureSRV(0, srvTexture1);
+		materials[1]->AddTextureSRV(1, srvDamagedPlasterNormalMap);
 		materials[1]->AddSampler(0, samplerState);
 
 		// Assign texture2 to material 2 (also uses psTextured)
 		materials[2]->AddTextureSRV(0, srvTexture2);
+		materials[2]->AddTextureSRV(1, srvFlatNormalMap);
 		materials[2]->AddSampler(0, samplerState);
 
 		// Materials 3-5 use debug/custom shaders, texture assignment optional
 		for (int i = 3; i <= 5; i++) {
 			materials[i]->AddTextureSRV(0, srvTexture2);
+			materials[i]->AddTextureSRV(1, srvFlatNormalMap);
 			materials[i]->AddSampler(0, samplerState);
 		}
 		// assign both textures to the 6th material, multi-texture and sampler state
@@ -533,6 +546,20 @@ void Game::CreateGeometry()
 	// entity 13: sphere, custom texture
 	entities.push_back(GameEntity(meshes[1], materials[6])); 
 	entities[9].GetTransform()->SetPosition(-6.0f, 0.0f, 0.0f);
+
+	// Create the sky
+	sky = std::make_shared<Sky>(
+		meshes[0],
+		samplerState,
+		L"../../Assets/Textures/Skies/Skies/Planet/right.png",
+		L"../../Assets/Textures/Skies/Skies/Planet/left.png",
+		L"../../Assets/Textures/Skies/Skies/Planet/up.png",
+		L"../../Assets/Textures/Skies/Skies/Planet/down.png",
+		L"../../Assets/Textures/Skies/Skies/Planet/front.png",
+		L"../../Assets/Textures/Skies/Skies/Planet/back.png",
+		L"SkyVS.cso",
+		L"SkyPS.cso"
+	);
 }
 
 void Game::FillAndBindNextConstantBuffer(void* data, size_t dataSize,

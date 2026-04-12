@@ -30,6 +30,8 @@ public:
 	int GetIndexCount() const;
 	int GetVertexCount() const;
 
+	void CalculateTangents(Vertex* verts, int numVerts, unsigned int* indices, int numIndices); // optional helper method to calculate tangents for normal mapping, if your OBJ loader doesn't support it
+
 	// draw method
 	void Draw(Microsoft::WRL::ComPtr<ID3D11DeviceContext> context);
 

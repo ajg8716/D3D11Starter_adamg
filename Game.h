@@ -27,6 +27,9 @@ public:
 	DirectX::XMFLOAT3 ambientColor;
 	std::vector<Light> lights;
 	std::shared_ptr<Sky> sky;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBlueMetalNormalMap;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvDamagedPlasterNormalMap;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvFlatNormalMap;
 
 	// Primary functions
 	void Update(float deltaTime, float totalTime);

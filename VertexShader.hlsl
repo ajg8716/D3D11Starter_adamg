@@ -28,6 +28,7 @@ struct VertexShaderInput
 	float3 localPosition	: POSITION;     // XYZ position
 	float3 normal			: NORMAL;        // RGBA color
 	float2 uv				: TEXCOORD;
+	float3 tangent          : TANGENT; 
 };
 
 // Struct representing the data we're sending down the pipeline
@@ -82,6 +83,7 @@ VertexToPixel main( VertexShaderInput input )
 	// - The values will be interpolated per-pixel by the rasterizer
 	// - We don't need to alter it here, but we do need to send it to the pixel shader
     output.normal = mul((float3x3) worldInvTranspose, input.normal);
+    output.tangent = mul((float3x3) worldMatrix, input.tangent);
     output.worldPosition = mul(worldMatrix, float4(input.localPosition, 1)).xyz;
     output.uv = input.uv;
 

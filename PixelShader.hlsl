@@ -2,6 +2,7 @@
 
 Texture2D SurfaceTexture : register(t0);
 SamplerState BasicSampler : register(s0);
+Texture2D NormalMap : register(t1);
 
 cbuffer ExternalData : register(b0)
 {
@@ -58,7 +59,20 @@ float4 main(VertexToPixel input) : SV_TARGET
     //return float4(input.normal, 1);
     
     //return float4(dirLight1.Color, 1);
-    input.normal = normalize(input.normal);
+    //input.normal = normalize(input.normal);
+    
+    // unpack and apply normal map
+    float3 normalFromMap = NormalMap.Sample(BasicSampler, uvOffset).rgb * 2.0f - 1.0f;
+    
+    // build TBN matrix 
+    float3 N = normalize(input.normal);
+    float3 T = normalize(input.tangent);
+    T = normalize(T - dot(T, N) * N); // make tangent orthogonal to normal
+    float3 B = cross(T, N);
+    float3x3 TBN = float3x3(T, B, N);
+    
+    input.normal = normalize(mul(normalFromMap, TBN));
+    
     
     float2 uv = input.uv * uvScale + uvOffset;
     float4 surfaceColor = SurfaceTexture.Sample(BasicSampler, uv);
@@ -100,6 +114,5 @@ float4 main(VertexToPixel input) : SV_TARGET
                 break;
         }
     }
-    
         return float4(totalLight, 1);
 }
