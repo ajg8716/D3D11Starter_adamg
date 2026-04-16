@@ -43,6 +43,7 @@ private:
         DirectX::XMFLOAT4X4 projection;
     };
     Microsoft::WRL::ComPtr<ID3D11Buffer> skyVSConstantBuffer;
+    Microsoft::WRL::ComPtr<ID3D11InputLayout> skyInputLayout;
 
     // Helper to create the cube map from 6 image files
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateCubemap(
