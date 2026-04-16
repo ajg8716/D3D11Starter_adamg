@@ -1,4 +1,13 @@
-float4 main() : SV_TARGET
+TextureCube skyTexture : register(t0);
+SamplerState skySampler : register(s0);
+
+struct VertexToPixel_Sky
 {
-	return float4(1.0f, 1.0f, 1.0f, 1.0f);
+    float4 position : SV_POSITION;
+    float3 sampleDir : DIRECTION;
+};
+
+float4 main(VertexToPixel_Sky input) : SV_TARGET
+{
+    return skyTexture.Sample(skySampler, input.sampleDir);
 }
