@@ -30,8 +30,8 @@ VertexToPixel_Sky main(VertexShaderInput input)
     viewNoTranslation._24 = 0;
     viewNoTranslation._34 = 0;
 
-    float4 clipPos = mul(float4(input.position, 1.0f), viewNoTranslation);
-    clipPos = mul(clipPos, projection);
+    matrix vp = mul(projection, viewNoTranslation);
+    float4 clipPos = mul(vp, float4(input.position, 1.0f));
     
     output.position = clipPos.xyww; // force depth = 1.0
     output.sampleDir = input.position; // cube vertex positions ARE the sample directions

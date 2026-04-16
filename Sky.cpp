@@ -37,9 +37,6 @@ Sky::Sky(
             blob->GetBufferPointer(), blob->GetBufferSize(),
             skyInputLayout.GetAddressOf());
 
-        if (FAILED(hr) || !skyInputLayout)
-            OutputDebugStringW(L"Sky input layout FAILED\n");
-
         blob->Release();
     }
 
@@ -79,9 +76,6 @@ Sky::~Sky() {}
 
 void Sky::Draw(std::shared_ptr<Camera> camera)
 {
-    // Save the current input layout before overriding it
-    Microsoft::WRL::ComPtr<ID3D11InputLayout> previousLayout;
-    Graphics::Context->IAGetInputLayout(previousLayout.GetAddressOf());
 
     // Set sky-specific render states
     Graphics::Context->RSSetState(skyRasterState.Get());
@@ -99,7 +93,7 @@ void Sky::Draw(std::shared_ptr<Camera> camera)
     // Note: strip translation from view matrix so sky never moves
     SkyVSData data = {};
     data.view = camera->GetViewMatrix();
-    data.view._14 = 0; data.view._24 = 0; data.view._34 = 0;
+    //data.view._14 = 0; data.view._24 = 0; data.view._34 = 0;
     data.projection = camera->GetProjectionMatrix();
 
     D3D11_MAPPED_SUBRESOURCE mapped = {};
@@ -108,7 +102,6 @@ void Sky::Draw(std::shared_ptr<Camera> camera)
     Graphics::Context->Unmap(skyVSConstantBuffer.Get(), 0);
 
     Graphics::Context->VSSetConstantBuffers(0, 1, skyVSConstantBuffer.GetAddressOf());
-    Graphics::Context->IASetInputLayout(skyInputLayout.Get());
 
     // Draw the cube mesh
     mesh->Draw(Graphics::Context);
@@ -116,7 +109,6 @@ void Sky::Draw(std::shared_ptr<Camera> camera)
     // Restore default render states so regular geometry draws correctly
     Graphics::Context->RSSetState(nullptr);
     Graphics::Context->OMSetDepthStencilState(nullptr, 0);
-    Graphics::Context->IASetInputLayout(previousLayout.Get()); // restore main layout
 }
 
 Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> Sky::CreateCubemap(
