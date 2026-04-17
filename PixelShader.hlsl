@@ -2,7 +2,11 @@
 
 Texture2D SurfaceTexture : register(t0);
 SamplerState BasicSampler : register(s0);
+Texture2D Albedo : register(t0);
 Texture2D NormalMap : register(t1);
+Texture2D RoughnessMap : register(t2);
+Texture2D MetalnessMap : register(t3);
+
 
 cbuffer ExternalData : register(b0)
 {
@@ -61,23 +65,25 @@ float4 main(VertexToPixel input) : SV_TARGET
     //return float4(dirLight1.Color, 1);
     //input.normal = normalize(input.normal);
     
-    // unpack and apply normal map
-    float3 normalFromMap = NormalMap.Sample(BasicSampler, uvOffset).rgb * 2.0f - 1.0f;
+    
     
     // build TBN matrix 
     float3 N = normalize(input.normal);
     float3 T = normalize(input.tangent);
     T = normalize(T - dot(T, N) * N); // make tangent orthogonal to normal
-    float3 B = cross(T, N);
-    float3x3 TBN = float3x3(T, B, N);
-    
-    input.normal = normalize(mul(normalFromMap, TBN));
-    
+    float3 B = cross(N, T);
+    float3x3 TBN = float3x3(T, B, N);    
     
     float2 uv = input.uv * uvScale + uvOffset;
-    float4 surfaceColor = SurfaceTexture.Sample(BasicSampler, uv);
+    float3 normalFromMap = NormalMap.Sample(BasicSampler, uv).rgb * 2.0f - 1.0f;
+    
+    input.normal = normalize(mul(TBN, normalFromMap));
+    
+    float4 surfaceColor = SurfaceTexture.Sample(BasicSampler, uv); 
+    surfaceColor = float4(pow(abs(surfaceColor.rgb), 2.2f), surfaceColor.a);  
 
-    float3 ambient = ambientColor * surfaceColor.rgb;
+    float roughness = RoughnessMap.Sample(BasicSampler, uv).r;
+    float metalness = MetalnessMap.Sample(BasicSampler, uv).r;
     
     // Diffuse for directional light
     //float3 lightDir = normalize(-dirLight1.Direction);
@@ -93,7 +99,7 @@ float4 main(VertexToPixel input) : SV_TARGET
     
     // final result - not tinting specular by surface color
     //float3 totalLight = ambient + diffuseColor + specularColor;
-    float3 totalLight = ambient;
+    float3 totalLight = float3(0,0,0);
     
     // loop through all lights
     for (int i = 0; i < 5; i++)
@@ -101,18 +107,21 @@ float4 main(VertexToPixel input) : SV_TARGET
         switch (lights[i].Type)
         {
             case LIGHT_TYPE_DIRECTIONAL:
-                totalLight += DirectionalLight(lights[i], input.normal,
-                input.worldPosition, cameraPosition, surfaceColor.rgb);
+                totalLight += DirectionalLightPBR(lights[i], input.normal,
+                input.worldPosition, cameraPosition, surfaceColor.rgb, roughness, metalness);
                 break;
             case LIGHT_TYPE_POINT:
-                totalLight += PointLight(lights[i], input.normal,
-                input.worldPosition, cameraPosition, surfaceColor.rgb);
+                totalLight += PointLightPBR(lights[i], input.normal,
+                input.worldPosition, cameraPosition, surfaceColor.rgb, roughness, metalness);
                 break;
             case LIGHT_TYPE_SPOT:
-                totalLight += SpotLight(lights[i], input.normal,
-                input.worldPosition, cameraPosition, surfaceColor.rgb);
+                totalLight += SpotLightPBR(lights[i], input.normal,
+                input.worldPosition, cameraPosition, surfaceColor.rgb, roughness, metalness);
                 break;
         }
     }
-        return float4(totalLight, 1);
+    
+    // Gama correction - convert from linear space to gamma space for correct display on monitors
+    float3 gammaCorrect = pow(abs(totalLight), 1.0f / 2.2f);
+    return float4(gammaCorrect, 1);
 }
