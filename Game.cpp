@@ -298,25 +298,37 @@ void Game::LoadShaders()
 		// Load textures
 		HRESULT hr1 = DirectX::CreateWICTextureFromFile(
 			Graphics::Device.Get(), Graphics::Context.Get(),
-			FixPath(L"../../Assets/Textures/Textures with Normal Maps/Textures with Normal Maps/cobblestone.png").c_str(),
-			nullptr, srvTexture1.GetAddressOf());
+			FixPath(L"../../Assets/Textures/PBR/cobblestone_albedo.png").c_str(),
+			nullptr, srvCobblestoneTexture.GetAddressOf());
 
 		HRESULT hr2 = DirectX::CreateWICTextureFromFile(
 			Graphics::Device.Get(), Graphics::Context.Get(),
-			FixPath(L"../../Assets/Textures/Textures with Normal Maps/Textures with Normal Maps/cushion.png").c_str(),
-			nullptr, srvTexture2.GetAddressOf());
+			FixPath(L"../../Assets/Textures/PBR/bronze_albedo.png").c_str(),
+			nullptr, srvBronzeTexture.GetAddressOf());
 
 		HRESULT hr3 = DirectX::CreateWICTextureFromFile(
-				Graphics::Device.Get(), Graphics::Context.Get(),
-				FixPath(L"../../Assets/Textures/Textures with Normal Maps/Textures with Normal Maps/cobblestone_normals.png").c_str(),
-			nullptr, srvBlueMetalNormalMap.GetAddressOf());
-
-		HRESULT hr4 = DirectX::CreateWICTextureFromFile(
 			Graphics::Device.Get(), Graphics::Context.Get(),
-			FixPath(L"../../Assets/Textures/Textures with Normal Maps/Textures with Normal Maps/cushion_normals.png").c_str(),
-			nullptr, srvDamagedPlasterNormalMap.GetAddressOf());
+			FixPath(L"../../Assets/Textures/PBR/floor_albedo.png").c_str(),
+			nullptr, srvFloorTexture.GetAddressOf());
+
+
+		//Load normal maps
+		HRESULT hr4 = DirectX::CreateWICTextureFromFile(
+				Graphics::Device.Get(), Graphics::Context.Get(),
+				FixPath(L"../../Assets/Textures/PBR/cobblestone_normals.png").c_str(),
+			nullptr, srvCobblestoneNormalMap.GetAddressOf());
 
 		HRESULT hr5 = DirectX::CreateWICTextureFromFile(
+			Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/PBR/bronze_normals.png").c_str(),
+			nullptr, srvBronzeNormalMap.GetAddressOf());
+
+		HRESULT hr6 = DirectX::CreateWICTextureFromFile(
+			Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/PBR/floor_normals.png").c_str(),
+			nullptr, srvFloorNormalMap.GetAddressOf());
+
+		HRESULT hr7 = DirectX::CreateWICTextureFromFile(
 			Graphics::Device.Get(), Graphics::Context.Get(),
 			FixPath(L"../../Assets/Textures/Textures with Normal Maps/Textures with Normal Maps/flat_normals.png").c_str(),
 			nullptr, srvFlatNormalMap.GetAddressOf());
@@ -327,6 +339,30 @@ void Game::LoadShaders()
 		if (FAILED(hr3)) OutputDebugStringW(L"Normal map FAILED to load\n");
 		if (FAILED(hr4)) OutputDebugStringW(L"Damaged plaster normal map FAILED to load\n");
 		if (FAILED(hr5)) OutputDebugStringW(L"Flat normal map FAILED to load\n");
+
+		//load roughness and metalness maps
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvCobblestoneRoughness;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvCobblestoneMetalness;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBronzeRoughness;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBronzeMetalness;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvFloorRoughness;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvFloorMetalness;
+
+		CreateWICTextureFromFile(Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/PBR/cobblestone_roughness.png").c_str(),
+			nullptr, srvCobblestoneRoughness.GetAddressOf());
+
+		CreateWICTextureFromFile(Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/PBR/cobblestone_metal.png").c_str(),
+			nullptr, srvCobblestoneMetalness.GetAddressOf());
+
+		CreateWICTextureFromFile(Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/PBR/bronze_roughness.png").c_str(),
+			nullptr, srvCobblestoneRoughness.GetAddressOf());
+
+		CreateWICTextureFromFile(Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/PBR/bronze_metal.png").c_str(),
+			nullptr, srvCobblestoneMetalness.GetAddressOf());
 
 		// Create sampler state
 		D3D11_SAMPLER_DESC sampDesc = {};
@@ -356,28 +392,31 @@ void Game::LoadShaders()
 
 
 		// Assign texture1 + sampler to materials 0 and 1
-		materials[0]->AddTextureSRV(0, srvTexture1);
-		materials[0]->AddTextureSRV(1, srvBlueMetalNormalMap);
-		materials[0]->AddSampler(0, samplerState);
+		materials[0]->AddTextureSRV(0, srvCobblestoneTexture);
+		materials[0]->AddTextureSRV(1, srvCobblestoneNormalMap);
+		materials[0]->AddTextureSRV(2, srvCobblestoneRoughness);
+		materials[0]->AddTextureSRV(3, srvCobblestoneMetalness);
 
-		materials[1]->AddTextureSRV(0, srvTexture1);
-		materials[1]->AddTextureSRV(1, srvDamagedPlasterNormalMap);
-		materials[1]->AddSampler(0, samplerState);
+		materials[1]->AddTextureSRV(0, srvBronzeTexture);
+		materials[1]->AddTextureSRV(1, srvBronzeNormalMap);
+		materials[1]->AddTextureSRV(2, srvBronzeRoughness);
+		materials[1]->AddTextureSRV(3, srvBronzeMetalness);
 
 		// Assign texture2 to material 2 (also uses psTextured)
-		materials[2]->AddTextureSRV(0, srvTexture2);
-		materials[2]->AddTextureSRV(1, srvFlatNormalMap);
+		materials[2]->AddTextureSRV(0, srvFloorTexture);
+		materials[2]->AddTextureSRV(1, srvFloorNormalMap);
+		materials[2]->AddTextureSRV(2, srvFloorRoughness);
+		materials[2]->AddTextureSRV(3, srvFloorMetalness);
 		materials[2]->AddSampler(0, samplerState);
 
 		// Materials 3-5 use debug/custom shaders, texture assignment optional
 		for (int i = 3; i <= 5; i++) {
-			materials[i]->AddTextureSRV(0, srvTexture2);
-			materials[i]->AddTextureSRV(1, srvFlatNormalMap);
+			materials[i]->AddTextureSRV(1, srvFloorNormalMap);
 			materials[i]->AddSampler(0, samplerState);
 		}
 		// assign both textures to the 6th material, multi-texture and sampler state
-		materials[6]->AddTextureSRV(0, srvTexture1);
-		materials[6]->AddTextureSRV(1, srvTexture2);
+		materials[6]->AddTextureSRV(0, srvFloorTexture);
+		materials[6]->AddTextureSRV(1, srvBronzeTexture);
 		materials[6]->AddSampler(0, samplerState);
 	}
 }

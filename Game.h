@@ -27,8 +27,9 @@ public:
 	DirectX::XMFLOAT3 ambientColor;
 	std::vector<Light> lights;
 	std::shared_ptr<Sky> sky;
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBlueMetalNormalMap;
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvDamagedPlasterNormalMap;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvCobblestoneNormalMap;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBronzeNormalMap;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvFloorNormalMap;
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvFlatNormalMap;
 
 	// Primary functions
@@ -43,8 +44,9 @@ private:
 	Microsoft::WRL::ComPtr<ID3D11Buffer> psConstantBuffer;*/
 
 	// Textures & sampler
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvTexture1;
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvTexture2;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvCobblestoneTexture;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvBronzeTexture;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srvFloorTexture;
 	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerState;
 
 	// Ring buffer constant buffer
