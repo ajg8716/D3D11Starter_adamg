@@ -67,6 +67,8 @@ private:
 	void LoadShaders();
 	void CreateGeometry();
 	void ImGuiFresh(float);
+	void CreateShadowMapResources();	
+	void RenderShadowMap();
 
 	//mesh storage - using shared_ptr for proper lifetime management
 	std::vector<std::shared_ptr<Mesh>> meshes;
@@ -103,5 +105,14 @@ private:
 	Microsoft::WRL::ComPtr<ID3D11PixelShader> pixelShader;
 	Microsoft::WRL::ComPtr<ID3D11VertexShader> vertexShader;
 	Microsoft::WRL::ComPtr<ID3D11InputLayout> inputLayout;
+
+	// shadow resources
+	Microsoft::WRL::ComPtr<ID3D11VertexShader> shadowVertexShader;
+	Microsoft::WRL::ComPtr<ID3D11DepthStencilView> shadowDSV;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shadowSRV;
+	Microsoft::WRL::ComPtr<ID3D11RasterizerState> shadowRasterizer;
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> shadowSampler;
+	DirectX::XMFLOAT4X4 lightViewMatrix;
+	DirectX::XMFLOAT4X4 lightProjectionMatrix;
 };
 

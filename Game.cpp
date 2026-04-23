@@ -30,11 +30,12 @@ Game::Game()
 	//  - You'll be expanding and/or replacing these later
 	LoadShaders();
 	CreateGeometry();
+	CreateShadowMapResources();
 
 	// Initialize constant buffer data
 	colorTint = XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f); // slight red tint
 	//offset = XMFLOAT3(0.1f, 0.0f, 0.0f);          // shift right
-	ambientColor = XMFLOAT3(0.1f, 0.1f, 0.25f);
+	ambientColor = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	//initialize the directional light
 	//directionalLight1 = {};
 	//directionalLight1.Type = LIGHT_TYPE_DIRECTIONAL;
@@ -46,43 +47,44 @@ Game::Game()
 	Light l1 = {};
 	l1.Type = LIGHT_TYPE_DIRECTIONAL;
 	l1.Direction = XMFLOAT3(1.0f, -1.0f, 0.0f);
-	l1.Color = XMFLOAT3(1.0f, 0.0f, 0.0f); // red
+	l1.Color = XMFLOAT3(1.0f, 1.0f, 1.0f); // white
 	l1.Intensity = 1.0f;
+	l1.CastsShadows = 1;
 	lights.push_back(l1);
 
-	Light l2 = {};
-	l2.Type = LIGHT_TYPE_DIRECTIONAL;
-	l2.Direction = XMFLOAT3(-1.0f, -1.0f, 0.0f);
-	l2.Color = XMFLOAT3(0.0f, 1.0f, 0.0f); // green
-	l2.Intensity = 1.0f;
-	lights.push_back(l2);
+	//Light l2 = {};
+	//l2.Type = LIGHT_TYPE_DIRECTIONAL;
+	//l2.Direction = XMFLOAT3(-1.0f, -1.0f, 0.0f);
+	//l2.Color = XMFLOAT3(0.0f, 1.0f, 0.0f); // green
+	//l2.Intensity = 1.0f;
+	//lights.push_back(l2);
 
-	Light l3 = {};
-	l3.Type = LIGHT_TYPE_SPOT;
-	l3.Position = XMFLOAT3(0.0f, 5.0f, 0.0f); // above the scene
-	l3.Direction = XMFLOAT3(0.0f, -1.0f, 0.0f); // pointing straight down
-	l3.Range = 15.0f;
-	l3.Color = XMFLOAT3(0.0f, 0.0f, 1.0f); // blue
-	l3.Intensity = 3.0f;
-	l3.SpotInnerAngle = 0.2f; // ~11 degrees
-	l3.SpotOuterAngle = 0.5f; // ~28 degrees
-	lights.push_back(l3);
+	//Light l3 = {};
+	//l3.Type = LIGHT_TYPE_SPOT;
+	//l3.Position = XMFLOAT3(0.0f, 5.0f, 0.0f); // above the scene
+	//l3.Direction = XMFLOAT3(0.0f, -1.0f, 0.0f); // pointing straight down
+	//l3.Range = 15.0f;
+	//l3.Color = XMFLOAT3(0.0f, 0.0f, 1.0f); // blue
+	//l3.Intensity = 3.0f;
+	//l3.SpotInnerAngle = 0.2f; // ~11 degrees
+	//l3.SpotOuterAngle = 0.5f; // ~28 degrees
+	//lights.push_back(l3);
 
-	Light l4 = {};
-	l4.Type = LIGHT_TYPE_POINT;
-	l4.Position = XMFLOAT3(0.0f, 2.0f, 0.0f); // hovering above center
-	l4.Range = 10.0f;
-	l4.Color = XMFLOAT3(1.0f, 1.0f, 0.0f); // yellow
-	l4.Intensity = 2.0f;
-	lights.push_back(l4);
+	//Light l4 = {};
+	//l4.Type = LIGHT_TYPE_POINT;
+	//l4.Position = XMFLOAT3(0.0f, 2.0f, 0.0f); // hovering above center
+	//l4.Range = 10.0f;
+	//l4.Color = XMFLOAT3(1.0f, 1.0f, 0.0f); // yellow
+	//l4.Intensity = 2.0f;
+	//lights.push_back(l4);
 
-	Light l5 = {};
-	l5.Type = LIGHT_TYPE_POINT;
-	l5.Position = XMFLOAT3(-3.0f, 0.0f, 0.0f); // to the left
-	l5.Range = 8.0f;
-	l5.Color = XMFLOAT3(1.0f, 0.5f, 1.0f); // orange
-	l5.Intensity = 2.0f;
-	lights.push_back(l5);
+	//Light l5 = {};
+	//l5.Type = LIGHT_TYPE_POINT;
+	//l5.Position = XMFLOAT3(-3.0f, 0.0f, 0.0f); // to the left
+	//l5.Range = 8.0f;
+	//l5.Color = XMFLOAT3(1.0f, 0.5f, 1.0f); // orange
+	//l5.Intensity = 2.0f;
+	//lights.push_back(l5);
 
 	//// create the constant buffer
 	//D3D11_BUFFER_DESC cbDesc = {};
@@ -199,6 +201,7 @@ void Game::LoadShaders()
 	// - Literally just a big array of bytes read from a file
 	ID3DBlob* pixelShaderBlob;
 	ID3DBlob* vertexShaderBlob;
+	ID3DBlob* shadowBlob;
 
 	Microsoft::WRL::ComPtr<ID3D11VertexShader> vs;
 	Microsoft::WRL::ComPtr<ID3D11PixelShader> ps;
@@ -213,6 +216,7 @@ void Game::LoadShaders()
 		// - Note the "L" before the string - this tells the compiler the string uses wide characters
 		D3DReadFileToBlob(FixPath(L"PixelShader.cso").c_str(), &pixelShaderBlob);
 		D3DReadFileToBlob(FixPath(L"VertexShader.cso").c_str(), &vertexShaderBlob);
+		D3DReadFileToBlob(FixPath(L"ShadowVS.cso").c_str(), &shadowBlob);
 
 		// Create the actual Direct3D shaders on the GPU
 		Graphics::Device->CreatePixelShader(
@@ -226,6 +230,13 @@ void Game::LoadShaders()
 			vertexShaderBlob->GetBufferSize(),		// How big is that data?
 			0,										// No classes in this shader
 			vs.GetAddressOf());			// The address of the ID3D11VertexShader pointer
+
+		Graphics::Device->CreateVertexShader(
+			shadowBlob->GetBufferPointer(),
+			shadowBlob->GetBufferSize(),
+			nullptr,
+			shadowVertexShader.GetAddressOf());
+
 	}
 
 	// Create an input layout 
@@ -264,6 +275,7 @@ void Game::LoadShaders()
 
 		vertexShaderBlob->Release();
 		pixelShaderBlob->Release();
+		shadowBlob->Release();
 
 		// Helper lambda to load a pixel shader from a .cso file
 		auto LoadPS = [&](const wchar_t* path) -> Microsoft::WRL::ComPtr<ID3D11PixelShader>
@@ -308,7 +320,7 @@ void Game::LoadShaders()
 
 		HRESULT hr3 = DirectX::CreateWICTextureFromFile(
 			Graphics::Device.Get(), Graphics::Context.Get(),
-			FixPath(L"../../Assets/Textures/PBR/floor_albedo.png").c_str(),
+			FixPath(L"../../Assets/Textures/PBR/wood_albedo.png").c_str(),
 			nullptr, srvFloorTexture.GetAddressOf());
 
 
@@ -325,7 +337,7 @@ void Game::LoadShaders()
 
 		HRESULT hr6 = DirectX::CreateWICTextureFromFile(
 			Graphics::Device.Get(), Graphics::Context.Get(),
-			FixPath(L"../../Assets/Textures/PBR/floor_normals.png").c_str(),
+			FixPath(L"../../Assets/Textures/PBR/wood_normals.png").c_str(),
 			nullptr, srvFloorNormalMap.GetAddressOf());
 
 		HRESULT hr7 = DirectX::CreateWICTextureFromFile(
@@ -358,11 +370,19 @@ void Game::LoadShaders()
 
 		CreateWICTextureFromFile(Graphics::Device.Get(), Graphics::Context.Get(),
 			FixPath(L"../../Assets/Textures/PBR/bronze_roughness.png").c_str(),
-			nullptr, srvCobblestoneRoughness.GetAddressOf());
+			nullptr, srvBronzeRoughness.GetAddressOf());
 
 		CreateWICTextureFromFile(Graphics::Device.Get(), Graphics::Context.Get(),
 			FixPath(L"../../Assets/Textures/PBR/bronze_metal.png").c_str(),
-			nullptr, srvCobblestoneMetalness.GetAddressOf());
+			nullptr, srvBronzeMetalness.GetAddressOf());
+
+		CreateWICTextureFromFile(Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/PBR/wood_roughness.png").c_str(),
+			nullptr, srvFloorRoughness.GetAddressOf());
+
+		CreateWICTextureFromFile(Graphics::Device.Get(), Graphics::Context.Get(),
+			FixPath(L"../../Assets/Textures/PBR/wood_metal.png").c_str(),
+			nullptr, srvFloorMetalness.GetAddressOf());
 
 		// Create sampler state
 		D3D11_SAMPLER_DESC sampDesc = {};
@@ -396,11 +416,13 @@ void Game::LoadShaders()
 		materials[0]->AddTextureSRV(1, srvCobblestoneNormalMap);
 		materials[0]->AddTextureSRV(2, srvCobblestoneRoughness);
 		materials[0]->AddTextureSRV(3, srvCobblestoneMetalness);
+		materials[0]->AddSampler(0, samplerState);
 
 		materials[1]->AddTextureSRV(0, srvBronzeTexture);
 		materials[1]->AddTextureSRV(1, srvBronzeNormalMap);
 		materials[1]->AddTextureSRV(2, srvBronzeRoughness);
 		materials[1]->AddTextureSRV(3, srvBronzeMetalness);
+		materials[1]->AddSampler(0, samplerState);
 
 		// Assign texture2 to material 2 (also uses psTextured)
 		materials[2]->AddTextureSRV(0, srvFloorTexture);
@@ -532,7 +554,7 @@ void Game::CreateGeometry()
 	meshes.push_back(std::make_shared<Mesh>(FixPath(L"../../Assets/helix.obj").c_str(), Graphics::Device));
 
 	// create All entitities
-	//-----------------------------------------------------------------
+	//-----------------------------------------------------------------	
 	// entity 0: cube, left, will rotate
 	entities.push_back(GameEntity(meshes[0], materials[0]));
 	entities[0].GetTransform()->SetPosition(-2.0f, 0.0f, 0.0f);
@@ -585,6 +607,11 @@ void Game::CreateGeometry()
 	// entity 13: sphere, custom texture
 	entities.push_back(GameEntity(meshes[1], materials[6])); 
 	entities[9].GetTransform()->SetPosition(-6.0f, 0.0f, 0.0f);
+
+	// create the floor
+	entities.push_back(GameEntity(meshes[0], materials[2])); // use light-colored material
+	entities[10].GetTransform()->SetPosition(0.0f, -3.0f, 0.0f); // below everything
+	entities[10].GetTransform()->SetScale(20.0f, 0.5f, 20.0f);   // wide and flat
 
 	// Create the sky
 	sky = std::make_shared<Sky>(
@@ -888,6 +915,125 @@ void Game::OnResize()
 		cam->UpdateProjectionMatrix(aspectRatio);
 }
 
+void Game::CreateShadowMapResources() {
+	const int SHADOW_MAP_SIZE = 1024;
+
+	// create the shadow map texture
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> shadowTexture;
+	D3D11_TEXTURE2D_DESC texDesc = {};
+	texDesc.Width = SHADOW_MAP_SIZE;
+	texDesc.Height = SHADOW_MAP_SIZE;
+	texDesc.MipLevels = 1;
+	texDesc.ArraySize = 1;
+	texDesc.Format = DXGI_FORMAT_R32_TYPELESS; // typeless, can create both SRV and DSV
+	texDesc.SampleDesc.Count = 1;
+	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	texDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	Graphics::Device->CreateTexture2D(&texDesc, nullptr, shadowTexture.GetAddressOf());
+
+	//DSV - depth stencil view
+	D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	dsvDesc.Texture2D.MipSlice = 0;
+	Graphics::Device->CreateDepthStencilView(shadowTexture.Get(), &dsvDesc, shadowDSV.GetAddressOf());
+
+	//SRV - shader resource view
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	Graphics::Device->CreateShaderResourceView(shadowTexture.Get(), &srvDesc, shadowSRV.GetAddressOf());
+
+	//Rasterizer stater 
+	D3D11_RASTERIZER_DESC rasterDesc = {};
+	rasterDesc.FillMode = D3D11_FILL_SOLID;
+	rasterDesc.CullMode = D3D11_CULL_BACK;
+	rasterDesc.DepthClipEnable = false;
+	rasterDesc.DepthBias = 1000;
+	rasterDesc.DepthBiasClamp = 0.0f;
+	rasterDesc.SlopeScaledDepthBias = 1.0f;
+	Graphics::Device->CreateRasterizerState(&rasterDesc, shadowRasterizer.GetAddressOf());
+
+	XMFLOAT3 lightDir = XMFLOAT3(1.0f, -1.0f, 0.0f);
+	XMVECTOR dir = XMVector3Normalize(XMLoadFloat3(&lightDir));
+
+	XMVECTOR lightPos = XMVectorScale(dir, -20.0f);
+
+	XMMATRIX view = XMMatrixLookAtLH(
+		lightPos,
+		XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f),
+		XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+	XMStoreFloat4x4(&lightViewMatrix, view);
+
+	//comparison sampler state for shadow map sampling
+	D3D11_SAMPLER_DESC sampDesc = {};
+	sampDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
+	sampDesc.ComparisonFunc = D3D11_COMPARISON_LESS;
+	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
+	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
+	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
+	sampDesc.BorderColor[0] = 1.0f;
+	sampDesc.BorderColor[1] = 1.0f;
+	sampDesc.BorderColor[2] = 1.0f;
+	sampDesc.BorderColor[3] = 1.0f;
+	Graphics::Device->CreateSamplerState(&sampDesc, shadowSampler.GetAddressOf());
+
+	//orthographic projection for directional light
+	XMMATRIX proj = XMMatrixOrthographicLH(20.0f, 20.0f, 0.1f, 100.0f);
+	XMStoreFloat4x4(&lightProjectionMatrix, proj);
+}
+
+void Game::RenderShadowMap() {
+	// clear the shadow map depth
+	Graphics::Context->ClearDepthStencilView(shadowDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+	Graphics::Context->OMSetRenderTargets(0, 0, shadowDSV.Get());
+	//Apply shadow rasterizer
+	Graphics::Context->RSSetState(shadowRasterizer.Get());
+
+	// Set shadow map viewport to match texture size
+	D3D11_VIEWPORT vp = {};
+	vp.TopLeftX = 0.0f;
+	vp.TopLeftY = 0.0f;
+	vp.Width = 1024.0f;
+	vp.Height = 1024.0f;
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
+	Graphics::Context->RSSetViewports(1, &vp);
+
+
+	// shadow VS only, no pixel shader
+	Graphics::Context->VSSetShader(shadowVertexShader.Get(), 0, 0);
+	Graphics::Context->PSSetShader(0, 0, 0);
+
+	// Simple struct - just world/view/proj
+	struct ShadowVSData
+	{
+		XMFLOAT4X4 world;
+		XMFLOAT4X4 view;
+		XMFLOAT4X4 proj;
+	};
+
+	ShadowVSData vsData = {};
+	vsData.view = lightViewMatrix;
+	vsData.proj = lightProjectionMatrix;
+
+	for (auto& entity : entities) {
+		vsData.world = entity.GetTransform()->GetWorldMatrix();
+		// Use whatever cbuffer binding you have
+		FillAndBindNextConstantBuffer(&vsData, sizeof(ShadowVSData), true, 0);
+		entity.Draw(Graphics::Context);
+	}
+
+	// restore everything
+	Graphics::Context->OMSetRenderTargets(1, Graphics::BackBufferRTV.GetAddressOf(), Graphics::DepthBufferDSV.Get());
+	vp.Width = (float)Window::Width();
+	vp.Height = (float)Window::Height();
+	Graphics::Context->RSSetViewports(1, &vp);
+	Graphics::Context->RSSetState(0);
+}
+
 // --------------------------------------------------------
 // Update your game here - user input, move objects, AI, etc.
 // --------------------------------------------------------
@@ -991,6 +1137,11 @@ void Game::Draw(float deltaTime, float totalTime)
 		XMFLOAT4X4 view = cameras[activeCameraIndex]->GetViewMatrix();
 		XMFLOAT4X4 projection = cameras[activeCameraIndex]->GetProjectionMatrix();
 
+		RenderShadowMap();
+		//bind shadowSRV and shadowSampler to the pixel shader for use in lighting calculations
+		Graphics::Context->PSSetShaderResources(4, 1, shadowSRV.GetAddressOf());
+		Graphics::Context->PSSetSamplers(1, 1, shadowSampler.GetAddressOf());
+
 		//A5
 		// Draw each entity with its own matrix
 		for (auto& entity : entities)
@@ -1005,8 +1156,11 @@ void Game::Draw(float deltaTime, float totalTime)
 			VertexShaderExternalData cbData = {};
 			cbData.world = entity.GetTransform()->GetWorldMatrix();
 			//cbData.colorTint = mat->GetColorTint();
+			cbData.worldInvTranspose = entity.GetTransform()->GetWorldInverseTransposeMatrix();
 			cbData.view = view;
 			cbData.projection = projection;
+			cbData.lightView = lightViewMatrix;
+			cbData.lightProjection = lightProjectionMatrix;
 
 			// Map, copy, unmap
 			//D3D11_MAPPED_SUBRESOURCE mapped = {};
@@ -1043,6 +1197,9 @@ void Game::Draw(float deltaTime, float totalTime)
 			// Draw the entity (sets VB/IB and calls DrawIndexed)
 			entity.Draw(Graphics::Context);
 		}
+
+		ID3D11ShaderResourceView* nullSrv[16] = {};
+		Graphics::Context->PSSetShaderResources(0, 16, nullSrv);
 
 		//draw the sky
 		sky->Draw(cameras[activeCameraIndex]);

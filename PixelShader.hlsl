@@ -6,6 +6,8 @@ Texture2D Albedo : register(t0);
 Texture2D NormalMap : register(t1);
 Texture2D RoughnessMap : register(t2);
 Texture2D MetalnessMap : register(t3);
+Texture2D ShadowMap : register(t4);
+SamplerComparisonState ShadowSampler : register(s1);
 
 
 cbuffer ExternalData : register(b0)
@@ -77,13 +79,21 @@ float4 main(VertexToPixel input) : SV_TARGET
     float2 uv = input.uv * uvScale + uvOffset;
     float3 normalFromMap = NormalMap.Sample(BasicSampler, uv).rgb * 2.0f - 1.0f;
     
-    input.normal = normalize(mul(TBN, normalFromMap));
+    input.normal = normalize(mul(normalFromMap, TBN));
     
     float4 surfaceColor = SurfaceTexture.Sample(BasicSampler, uv); 
     surfaceColor = float4(pow(abs(surfaceColor.rgb), 2.2f), surfaceColor.a);  
 
     float roughness = RoughnessMap.Sample(BasicSampler, uv).r;
     float metalness = MetalnessMap.Sample(BasicSampler, uv).r;
+    
+    //shadow calculations
+    float2 shadowUV = input.shadowPos.xy / input.shadowPos.w;
+    shadowUV = shadowUV * 0.5f + 0.5f;
+    shadowUV.y = 1.0f - shadowUV.y; 
+    float depthFromLight = input.shadowPos.z / input.shadowPos.w;
+    float shadowAmount = ShadowMap.SampleCmpLevelZero(ShadowSampler, shadowUV, depthFromLight - 0.005f);
+    
     
     // Diffuse for directional light
     //float3 lightDir = normalize(-dirLight1.Direction);
@@ -108,7 +118,7 @@ float4 main(VertexToPixel input) : SV_TARGET
         {
             case LIGHT_TYPE_DIRECTIONAL:
                 totalLight += DirectionalLightPBR(lights[i], input.normal,
-                input.worldPosition, cameraPosition, surfaceColor.rgb, roughness, metalness);
+                input.worldPosition, cameraPosition, surfaceColor.rgb, roughness, metalness) * (lights[i].CastsShadows ? shadowAmount : 1.0f);
                 break;
             case LIGHT_TYPE_POINT:
                 totalLight += PointLightPBR(lights[i], input.normal,

@@ -11,6 +11,7 @@ struct VertexToPixel
     float3 normal : NORMAL;
     float2 uv : TEXCOORD;
     float3 worldPosition : POSITION;
+    float4 shadowPos : SHADOW_POSITION;
     float3 tangent : TANGENT;
 
 };
@@ -27,6 +28,7 @@ struct Light
     float SpotInnerAngle;
     float SpotOuterAngle;
     float2 Padding;
+    bool CastsShadows;
 };
 
 // Diffuse calculation

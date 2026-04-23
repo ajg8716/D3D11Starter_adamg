@@ -10,6 +10,8 @@ struct VertexShaderExternalData
 	//float padding;
 	DirectX::XMFLOAT4X4 view;
 	DirectX::XMFLOAT4X4 projection;
+	DirectX::XMFLOAT4X4 lightView;
+	DirectX::XMFLOAT4X4 lightProjection;
 };
 
 struct PixelShaderExternalData

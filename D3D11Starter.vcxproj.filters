@@ -10,6 +10,7 @@
     <FxCompile Include="CustomTexture.hlsl" />
     <FxCompile Include="SkyVS.hlsl" />
     <FxCompile Include="SkyPS.hlsl" />
+    <FxCompile Include="ShadowVS.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />

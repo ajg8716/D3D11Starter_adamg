@@ -11,6 +11,8 @@ cbuffer ExternalData : register(b0)
     float4x4 worldInvTranspose;
     float4x4 viewMatrix; // camera's view matrix (camera position and orientation)
     float4x4 projectionMatrix; // camera's projection matrix (field of view, aspect ratio, near and far planes)
+    float4x4 lightViewMatrix;
+    float4x4 lightProjectionMatrix;
 }
 
 // Struct representing a single vertex worth of data
@@ -86,6 +88,9 @@ VertexToPixel main( VertexShaderInput input )
     output.tangent = mul((float3x3) worldMatrix, input.tangent);
     output.worldPosition = mul(worldMatrix, float4(input.localPosition, 1)).xyz;
     output.uv = input.uv;
+	
+	float4 worldPos = mul(worldMatrix, float4(input.localPosition, 1.0f));
+    output.shadowPos = mul(lightProjectionMatrix, float4(input.localPosition, 1.0f));
 
 	// Whatever we return will make its way through the pipeline to the
 	// next programmable stage we're using (the pixel shader for now)

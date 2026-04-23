@@ -16,4 +16,5 @@ struct Light
     float SpotInnerAngle;
     float SpotOuterAngle;
     DirectX::XMFLOAT2 Padding;
+    int CastsShadows;
 };
