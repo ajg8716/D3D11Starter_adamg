@@ -92,8 +92,9 @@ float4 main(VertexToPixel input) : SV_TARGET
     shadowUV = shadowUV * 0.5f + 0.5f;
     shadowUV.y = 1.0f - shadowUV.y; 
     float depthFromLight = input.shadowPos.z / input.shadowPos.w;
-    float shadowAmount = ShadowMap.SampleCmpLevelZero(ShadowSampler, shadowUV, depthFromLight - 0.005f);
+    float shadowAmount = ShadowMap.SampleCmpLevelZero(ShadowSampler, shadowUV, depthFromLight);
     
+    //return shadowAmount.rrrr;
     
     // Diffuse for directional light
     //float3 lightDir = normalize(-dirLight1.Direction);

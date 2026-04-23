@@ -573,7 +573,7 @@ void Game::CreateGeometry()
 
 	// entity 4: sphere (shared mesh), will rotate opposite direction
 	entities.push_back(GameEntity(meshes[1], materials[2]));
-	entities[2].GetTransform()->SetPosition(2.0f, 2.0f, 0.0f);
+	entities[2].GetTransform()->SetPosition(2.0f, 2.0f, 4.0f);
 
 	// entity 5: cube, colorTint - red
 	entities.push_back(GameEntity(meshes[0], materials[0]));

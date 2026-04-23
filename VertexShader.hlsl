@@ -90,7 +90,7 @@ VertexToPixel main( VertexShaderInput input )
     output.uv = input.uv;
 	
 	float4 worldPos = mul(worldMatrix, float4(input.localPosition, 1.0f));
-    output.shadowPos = mul(lightProjectionMatrix, float4(input.localPosition, 1.0f));
+    output.shadowPos = mul(mul(lightProjectionMatrix, lightViewMatrix), worldPos);
 
 	// Whatever we return will make its way through the pipeline to the
 	// next programmable stage we're using (the pixel shader for now)
