@@ -1227,7 +1227,15 @@ void Game::Draw(float deltaTime, float totalTime)
 		// Clear the back buffer (erase what's on screen) and depth buffer
 		//const float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };
 		Graphics::Context->ClearRenderTargetView(Graphics::BackBufferRTV.Get(),	color);
+		Graphics::Context->ClearRenderTargetView(ppRTV.Get(), color);
 		Graphics::Context->ClearDepthStencilView(Graphics::DepthBufferDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+		// restore the input layout for scene geometry
+		Graphics::Context->IASetInputLayout(inputLayout.Get());
+		Graphics::Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		// redirect scene rendering to the post-process render target
+		Graphics::Context->OMSetRenderTargets(1, ppRTV.GetAddressOf(), Graphics::DepthBufferDSV.Get());
 	}
 
 	//A4
@@ -1284,9 +1292,13 @@ void Game::Draw(float deltaTime, float totalTime)
 		XMFLOAT4X4 projection = cameras[activeCameraIndex]->GetProjectionMatrix();
 
 		RenderShadowMap();
+
+		Graphics::Context->OMSetRenderTargets(1, ppRTV.GetAddressOf(), Graphics::DepthBufferDSV.Get());
+
 		//bind shadowSRV and shadowSampler to the pixel shader for use in lighting calculations
 		Graphics::Context->PSSetShaderResources(4, 1, shadowSRV.GetAddressOf());
 		Graphics::Context->PSSetSamplers(1, 1, shadowSampler.GetAddressOf());
+		Graphics::Context->OMSetRenderTargets(1, ppRTV.GetAddressOf(), Graphics::DepthBufferDSV.Get());
 
 		//A5
 		// Draw each entity with its own matrix
