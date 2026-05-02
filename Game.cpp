@@ -1,4 +1,4 @@
-#include "Game.h"
+﻿#include "Game.h"
 #include "Graphics.h"
 #include "Vertex.h"
 #include "Input.h"
@@ -31,6 +31,7 @@ Game::Game()
 	LoadShaders();
 	CreateGeometry();
 	CreateShadowMapResources();
+	CreatePostProcessResources();
 
 	// Initialize constant buffer data
 	colorTint = XMFLOAT4(1.0f, 0.5f, 0.5f, 1.0f); // slight red tint
@@ -183,6 +184,130 @@ Game::~Game()
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
+}
+
+// ===========================================================
+// Create Post-Processing Resources
+// ===========================================================
+void Game::CreatePostProcessResources()
+{
+	// Clamp Sampler
+	D3D11_SAMPLER_DESC sd = {};
+	sd.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sd.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sd.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sd.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	sd.MaxLOD = D3D11_FLOAT32_MAX;
+	Graphics::Device->CreateSamplerState(&sd, ppSampler.GetAddressOf());
+
+	// Helper Lambda
+	auto LoadVS = [&](const wchar_t* path, ID3DBlob** blobOut)
+		-> Microsoft::WRL::ComPtr<ID3D11VertexShader>
+		{
+			Microsoft::WRL::ComPtr<ID3D11VertexShader> shader;
+			D3DReadFileToBlob(FixPath(path).c_str(), blobOut);
+			if (*blobOut)
+				Graphics::Device->CreateVertexShader(
+					(*blobOut)->GetBufferPointer(), (*blobOut)->GetBufferSize(),
+					nullptr, shader.GetAddressOf());
+			return shader;
+		};
+
+	auto LoadPS = [&](const wchar_t* path)
+		-> Microsoft::WRL::ComPtr<ID3D11PixelShader>
+		{
+			Microsoft::WRL::ComPtr<ID3D11PixelShader> shader;
+			ID3DBlob* blob = nullptr;
+			HRESULT hr = D3DReadFileToBlob(FixPath(path).c_str(), &blob);
+			if (SUCCEEDED(hr) && blob)
+			{
+				Graphics::Device->CreatePixelShader(
+					blob->GetBufferPointer(), blob->GetBufferSize(),
+					nullptr, shader.GetAddressOf());
+				blob->Release();
+			}
+			else
+			{
+				OutputDebugStringW(L"[PostProcess] FAILED to load shader: ");
+				OutputDebugStringW(path);
+				OutputDebugStringW(L"\n");
+			}
+			return shader;
+		};
+
+	// Load shaders
+	ID3DBlob* vsBlob = nullptr;
+	ppVS = LoadVS(L"PostProcessVS.cso", &vsBlob);
+	if (vsBlob) vsBlob->Release();
+
+	blurPS = LoadPS(L"BlurPS.cso");
+	chromaPS = LoadPS(L"ChromaticAberrationPS.cso");
+
+	// ── Create the two render targets at the current window size ─────────────
+	auto MakeRT = [&](Microsoft::WRL::ComPtr<ID3D11RenderTargetView>& rtv,
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& srv,
+		Microsoft::WRL::ComPtr<ID3D11Texture2D>& tex)
+		{
+			D3D11_TEXTURE2D_DESC td = {};
+			td.Width = Window::Width();
+			td.Height = Window::Height();
+			td.MipLevels = 1;
+			td.ArraySize = 1;
+			td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			td.SampleDesc.Count = 1;
+			td.Usage = D3D11_USAGE_DEFAULT;
+			td.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+			Graphics::Device->CreateTexture2D(&td, nullptr, tex.GetAddressOf());
+			Graphics::Device->CreateRenderTargetView(tex.Get(), nullptr, rtv.GetAddressOf());
+			Graphics::Device->CreateShaderResourceView(tex.Get(), nullptr, srv.GetAddressOf());
+		};
+
+	MakeRT(ppRTV, ppSRV, ppTexture);
+	MakeRT(ppPingRTV, ppPingSRV, ppPingTexture);
+}
+
+// ============================================================
+// Run Post Process Pass
+// - This is a helper for running a full-screen post-process pass
+// ============================================================
+void Game::RunPostProcessPass(
+	ID3D11PixelShader* ps,
+	ID3D11ShaderResourceView* srcSRV,
+	ID3D11RenderTargetView* dstRTV,
+	void* cbData,
+	size_t cbSize)
+{
+	// Bind destination, no depth
+	Graphics::Context->OMSetRenderTargets(1, &dstRTV, nullptr);
+
+	// Full-window viewport
+	D3D11_VIEWPORT vp = {};
+	vp.Width = (float)Window::Width();
+	vp.Height = (float)Window::Height();
+	vp.MaxDepth = 1.0f;
+	vp.TopLeftX = 0;
+	vp.TopLeftY = 0;
+	Graphics::Context->RSSetViewports(1, &vp);
+
+	// Constant buffer (slot 0, pixel shader)
+	FillAndBindNextConstantBuffer(cbData, cbSize, false, 0);
+
+	// Shaders – no input layout for the VS_VertexID trick
+	Graphics::Context->VSSetShader(ppVS.Get(), 0, 0);
+	Graphics::Context->PSSetShader(ps, 0, 0);
+	Graphics::Context->IASetInputLayout(nullptr);
+	Graphics::Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// Source texture + clamp sampler
+	Graphics::Context->PSSetShaderResources(0, 1, &srcSRV);
+	Graphics::Context->PSSetSamplers(0, 1, ppSampler.GetAddressOf());
+
+	// Draw the full-screen triangle (no VB needed)
+	Graphics::Context->Draw(3, 0);
+
+	// Unbind source so D3D doesn't complain next frame
+	ID3D11ShaderResourceView* nullSRV = nullptr;
+	Graphics::Context->PSSetShaderResources(0, 1, &nullSRV);
 }
 
 
@@ -897,8 +1022,29 @@ void Game::ImGuiFresh(float deltaTime) {
 		}
 		ImGui::PopID();
 	}
+	ImGui::End();
+
+	// Post-Process controls
+	ImGui::Begin("Post Process");
+
+	ImGui::SeparatorText("Blur (Task 1)");
+	ImGui::Checkbox("Enable Blur", &blurEnabled);
+	if (blurEnabled)
+	{
+		ImGui::SliderInt("Blur Radius", &blurRadius, 0, 10);
+		ImGui::TextDisabled("0 = no blur  |  cost scales with radius^2");
+	}
+
+	ImGui::SeparatorText("Chromatic Aberration (Task 2)");
+	ImGui::Checkbox("Enable Chromatic Aberration", &chromaEnabled);
+	if (chromaEnabled)
+	{
+		ImGui::SliderFloat("Strength", &chromaStrength, 0.0f, 0.03f, "%.4f");
+		ImGui::TextDisabled("0 = no effect  |  stronger at screen edges");
+	}
 
 	ImGui::End();
+	// -------------------------------------------------------------------
 
 	// mesh stats window
 	BuildMeshStatsWindow(meshes);
@@ -1204,7 +1350,67 @@ void Game::Draw(float deltaTime, float totalTime)
 		//draw the sky
 		sky->Draw(cameras[activeCameraIndex]);
 
-		ImGui::Render(); // Turns this frame��s UI into renderable triangles
+		// Post-process chain -------------------------------------------------
+		// Source always starts as ppSRV (the off-screen scene).
+		// Each active pass reads from one RT and writes to the next.
+		// Final pass must write to the back buffer.
+		{
+			bool doBlur = blurEnabled && (blurRadius > 0);
+			bool doChroma = chromaEnabled && (chromaStrength > 0.0f);
+
+			// Determine routing:
+			//   blur → ping, chroma → back buffer   (both active)
+			//   blur → back buffer                  (blur only)
+			//   chroma → back buffer                (chroma only)
+			//   neither → blit scene → back buffer  (identity copy)
+
+			if (doBlur)
+			{
+				BlurCB blurData = {};
+				blurData.blurRadius = blurRadius;
+				blurData.texelSizeX = 1.0f / (float)Window::Width();
+				blurData.texelSizeY = 1.0f / (float)Window::Height();
+
+				ID3D11RenderTargetView* dst = doChroma
+					? ppPingRTV.Get()
+					: Graphics::BackBufferRTV.Get();
+
+				RunPostProcessPass(blurPS.Get(), ppSRV.Get(), dst,
+					&blurData, sizeof(blurData));
+			}
+
+			if (doChroma)
+			{
+				ChromaCB chromaData = {};
+				chromaData.strength = chromaStrength;
+				chromaData.texelSizeX = 1.0f / (float)Window::Width();
+				chromaData.texelSizeY = 1.0f / (float)Window::Height();
+
+				// Read from ping if blur ran first, else read from original scene
+				ID3D11ShaderResourceView* src = doBlur
+					? ppPingSRV.Get()
+					: ppSRV.Get();
+
+				RunPostProcessPass(chromaPS.Get(), src,
+					Graphics::BackBufferRTV.Get(),
+					&chromaData, sizeof(chromaData));
+			}
+
+			// Neither effect active → copy scene to back buffer unchanged
+			if (!doBlur && !doChroma)
+			{
+				BlurCB blurData = {};   // radius 0 → identity copy
+				blurData.blurRadius = 0;
+				blurData.texelSizeX = 1.0f / (float)Window::Width();
+				blurData.texelSizeY = 1.0f / (float)Window::Height();
+
+				RunPostProcessPass(blurPS.Get(), ppSRV.Get(),
+					Graphics::BackBufferRTV.Get(),
+					&blurData, sizeof(blurData));
+			}
+		}
+
+		ImGui::Render(); // Turns this frame¡¦s UI into renderable triangles
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData()); // Draws it to the screen
 		
 		//A4

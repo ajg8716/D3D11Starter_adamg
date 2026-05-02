@@ -14,6 +14,23 @@
 #include "Lights.h"
 #include "Sky.h"
 
+// -- Post Process constant buffer structs ------------------------------
+// must be 16-byte aligned
+struct BlurCB
+{
+	int blurRadius;
+	float texelSizeX;
+	float texelSizeY;
+	float padding;
+};
+
+struct ChromaCB 
+{
+	float strength;
+	float texelSizeX;
+	float texelSizeY;
+	float padding;
+};
 
 class Game
 {
@@ -69,6 +86,12 @@ private:
 	void ImGuiFresh(float);
 	void CreateShadowMapResources();	
 	void RenderShadowMap();
+	void CreatePostProcessResources();
+	void RunPostProcessPass(ID3D11PixelShader* ps,
+		ID3D11ShaderResourceView* srcSRV,
+		ID3D11RenderTargetView* dstRTV,
+		void* cbData,
+		size_t                        cbSize);
 
 	//mesh storage - using shared_ptr for proper lifetime management
 	std::vector<std::shared_ptr<Mesh>> meshes;
@@ -114,5 +137,31 @@ private:
 	Microsoft::WRL::ComPtr<ID3D11SamplerState> shadowSampler;
 	DirectX::XMFLOAT4X4 lightViewMatrix;
 	DirectX::XMFLOAT4X4 lightProjectionMatrix;
+
+	// ---- Post-process resources ----------------------------------------------
+	// Off-screen render target: all 3-D rendering goes here first
+	Microsoft::WRL::ComPtr<ID3D11Texture2D>          ppTexture;
+	Microsoft::WRL::ComPtr<ID3D11RenderTargetView>   ppRTV;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> ppSRV;
+
+	// Intermediate (ping-pong) target used when both effects are active
+	Microsoft::WRL::ComPtr<ID3D11Texture2D>          ppPingTexture;
+	Microsoft::WRL::ComPtr<ID3D11RenderTargetView>   ppPingRTV;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> ppPingSRV;
+
+	// Clamp sampler shared by all post-process passes
+	Microsoft::WRL::ComPtr<ID3D11SamplerState>       ppSampler;
+
+	// Post-process shaders
+	Microsoft::WRL::ComPtr<ID3D11VertexShader> ppVS;     // full-screen triangle VS
+	Microsoft::WRL::ComPtr<ID3D11PixelShader>  blurPS;   // Task 1
+	Microsoft::WRL::ComPtr<ID3D11PixelShader>  chromaPS; // Task 2
+
+	// ImGui-controlled post-process parameters
+	bool  blurEnabled = true;
+	int   blurRadius = 0;        // 0 = no blur, max slider = 10
+	bool  chromaEnabled = true;
+	float chromaStrength = 0.005f;   // 0 = no effect, max slider = 0.03
+	// ----------------------------------------------------------------------------
 };
 

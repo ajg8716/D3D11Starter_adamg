@@ -11,6 +11,9 @@
     <FxCompile Include="SkyVS.hlsl" />
     <FxCompile Include="SkyPS.hlsl" />
     <FxCompile Include="ShadowVS.hlsl" />
+    <FxCompile Include="PostProcessVS.hlsl" />
+    <FxCompile Include="ChromaticAberrationPS.hlsl" />
+    <FxCompile Include="BlurPS.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
@@ -32,6 +35,7 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Material.cpp" />
     <ClCompile Include="Sky.cpp" />
+    <ClCompile Include="Game_Integration.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BufferStructs.h" />
@@ -68,5 +72,8 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{387d7734-9905-4af3-a669-bd339988a369}</UniqueIdentifier>
     </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Final_ReadMe.txt" />
   </ItemGroup>
 </Project>
